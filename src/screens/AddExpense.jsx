@@ -18,11 +18,17 @@ function AddExpenseScreen({ store, groupId, goBack, navigate }) {
   const [percents, setPercents] = React.useState({});
   const [exacts, setExacts] = React.useState({});
 
+  const amountNum = parseFloat(amount) || 0;
+  const partCount = participants.size;
+  const yourSharePreview = participants.has('me') ? amountNum / Math.max(1, partCount) : 0;
+
   React.useEffect(() => {
     setParticipants(new Set(group.members));
     setCurrency(group.currency);
   }, [group.id]);
 
+  // Seed split defaults when the participant set changes. Intentionally NOT keyed on
+  // amountNum so manual exact/percent entries survive while the user edits the amount.
   React.useEffect(() => {
     const list = [...participants];
     setShares(Object.fromEntries(list.map(p => [p, 1])));
@@ -30,11 +36,7 @@ function AddExpenseScreen({ store, groupId, goBack, navigate }) {
     setPercents(Object.fromEntries(list.map(p => [p, eq])));
     const share = amountNum / Math.max(1, list.length);
     setExacts(Object.fromEntries(list.map(p => [p, share.toFixed(2)])));
-  }, [participants, amountNum]);
-
-  const amountNum = parseFloat(amount) || 0;
-  const partCount = participants.size;
-  const yourSharePreview = participants.has('me') ? amountNum / Math.max(1, partCount) : 0;
+  }, [participants]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const splitLabel = (() => {
     if (splitMode === 'equal') return `Equally between ${partCount}`;
