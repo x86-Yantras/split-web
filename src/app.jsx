@@ -49,7 +49,7 @@ function App() {
     else if (top.screen === 'addExpense') inner = <AddExpenseScreen store={store} groupId={top.groupId} goBack={goBack} navigate={navigate} />;
     else if (top.screen === 'settle') inner = <SettleScreen store={store} friendId={top.friendId} groupId={top.groupId} goBack={goBack} />;
     else if (top.screen === 'friend') inner = <FriendScreen store={store} friendId={top.friendId} goBack={goBack} navigate={navigate} />;
-    else if (top.screen === 'newGroup') inner = <NewGroupScreen store={store} goBack={goBack} />;
+    else if (top.screen === 'newGroup') inner = <NewGroupScreen store={store} goBack={goBack} navigate={navigate} />;
     else if (top.screen === 'invite') inner = <InviteScreen store={store} groupId={top.groupId} goBack={goBack} />;
     else if (top.screen === 'join') inner = <JoinScreen store={store} goBack={goBack} navigate={navigate} onSignIn={handleSignIn} />;
     else if (top.screen === 'expense') inner = <ExpenseScreen store={store} groupId={top.groupId} expenseId={top.expenseId} goBack={goBack} />;
@@ -99,7 +99,7 @@ function App() {
 }
 
 // New group screen — simple stub.
-function NewGroupScreen({ store, goBack }) {
+function NewGroupScreen({ store, goBack, navigate }) {
   const [name, setName] = React.useState('');
   const [emoji, setEmoji] = React.useState('🧳');
   const [currency, setCurrency] = React.useState('USD');
@@ -113,17 +113,31 @@ function NewGroupScreen({ store, goBack }) {
   ];
   const [cover, setCover] = React.useState(colors[0]);
 
+  const [creating, setCreating] = React.useState(false);
+  const handleCreate = async () => {
+    if (!name.trim() || creating) return;
+    setCreating(true);
+    try {
+      const { id } = await store.createGroup({ name: name.trim(), emoji, cover, currency });
+      goBack();
+      navigate({ screen: 'group', id });
+    } catch (e) {
+      setCreating(false);
+      alert('Could not create the group. Check your connection and try again.');
+    }
+  };
+
   return (
     <Screen scroll={false} style={{ display: 'flex', flexDirection: 'column' }}>
       <Header
         leading={<IconBtn name="close" onClick={goBack} />}
         title="New group"
         trailing={
-          <button onClick={goBack} disabled={!name.trim()} style={{
-            background: 'none', border: 'none', cursor: name.trim() ? 'pointer' : 'default',
-            color: name.trim() ? SS.accent : SS.muted,
+          <button onClick={handleCreate} disabled={!name.trim() || creating} style={{
+            background: 'none', border: 'none', cursor: name.trim() && !creating ? 'pointer' : 'default',
+            color: name.trim() && !creating ? SS.accent : SS.muted,
             fontFamily: 'Geist, system-ui', fontSize: 15, fontWeight: 600, padding: 0,
-          }}>Create</button>
+          }}>{creating ? 'Creating…' : 'Create'}</button>
         }
       />
       <div style={{ flex: 1, overflow: 'auto', padding: '0 20px' }}>
