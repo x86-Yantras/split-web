@@ -71,17 +71,38 @@
       const ev = { seq, id: genId(), type, actor: actor || meId, ts: now(), payload };
       g.events.push(ev);
       saveCachedEvents(groupId);
-      queue.push({ groupId, sheetId: g.sheetId, row: [String(seq), ev.id, type, ev.actor, String(ev.ts), JSON.stringify(payload)] });
+      queue.push({ groupId, sheetId: g.sheetId, eventId: ev.id, row: [String(seq), ev.id, type, ev.actor, String(ev.ts), JSON.stringify(payload)] });
       notify();
       return ev;
     }
 
     async function flush() {
+      let reconciled = false;
       while (queue.length) {
         const item = queue[0];
-        try { await sheets.appendEvent(item.sheetId, item.row); queue.shift(); }
-        catch (e) { break; } // keep in queue; retried on next flush/poll
+        try {
+          const res = await sheets.appendEvent(item.sheetId, item.row);
+          // The Sheet row is authoritative ordering. Reconcile the local event's seq with it.
+          const range = res && res.updates && res.updates.updatedRange;
+          const m = range && /!([A-Z]+)(\d+)/.exec(range);
+          if (m) {
+            const realSeq = parseInt(m[2], 10) - 1; // row 1 is the header
+            const g = G[item.groupId];
+            const ev = g && g.events.find(e => e.id === item.eventId);
+            if (ev && realSeq > 0 && ev.seq !== realSeq) {
+              ev.seq = realSeq;
+              g.events.sort((a, b) => a.seq - b.seq);
+              g.lastSeq = Math.max(g.lastSeq, realSeq);
+              saveCachedEvents(item.groupId);
+              reconciled = true;
+            } else if (g) {
+              g.lastSeq = Math.max(g.lastSeq, ev ? ev.seq : g.lastSeq);
+            }
+          }
+          queue.shift();
+        } catch (e) { break; } // keep in queue; retried on next flush/poll
       }
+      if (reconciled) notify();
     }
 
     // ---- mutations ----
