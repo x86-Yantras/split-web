@@ -1,7 +1,7 @@
 // Invite flow — enter Gmail → add as Sheets editor (silently) → share deep link.
 
-function InviteScreen({ groupId, goBack }) {
-  const groups = window.DATA.groups;
+function InviteScreen({ store, groupId, goBack }) {
+  const groups = store.getSnapshot().groups;
   const [group, setGroup] = React.useState(groupId ? groups.find(g => g.id === groupId) : groups[0]);
   const [email, setEmail] = React.useState('');
   const [stage, setStage] = React.useState('email'); // email | provisioning | ready

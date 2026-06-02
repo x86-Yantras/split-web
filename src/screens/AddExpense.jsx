@@ -1,8 +1,9 @@
 // Add Expense screen — flows for amount, description, payer, split.
 
-function AddExpenseScreen({ groupId, goBack, navigate }) {
-  const allGroups = window.DATA.groups;
-  const people = window.DATA.people;
+function AddExpenseScreen({ store, groupId, goBack, navigate }) {
+  const snap = store.getSnapshot();
+  const allGroups = snap.groups;
+  const people = snap.people;
 
   const [group, setGroup] = React.useState(groupId ? allGroups.find(g => g.id === groupId) : allGroups[0]);
   const [amount, setAmount] = React.useState('');

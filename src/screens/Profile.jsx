@@ -1,7 +1,7 @@
 // Profile / account.
 
-function ProfileScreen({ onSignOut, tweaks, setTweak, user }) {
-  const fallback = window.DATA.me;
+function ProfileScreen({ store, onSignOut, tweaks, setTweak, user }) {
+  const fallback = store.getSnapshot().me;
   const name = user?.name || 'Sam Park';
   const email = user?.email || 'sam.park@gmail.com';
   const initials = (user?.givenName?.[0] || 'S').toUpperCase();

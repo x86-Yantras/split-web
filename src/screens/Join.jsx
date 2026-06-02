@@ -1,8 +1,9 @@
 // Join screen — the page invitees land on when they tap a deep link.
 
-function JoinScreen({ goBack, navigate, onSignIn }) {
-  const group = window.DATA.groups.find(g => g.id === 'kyoto'); // demo
-  const inviter = window.DATA.people.alex;
+function JoinScreen({ store, goBack, navigate, onSignIn }) {
+  const snap = store.getSnapshot();
+  const group = snap.groups[0] || window.DATA.groups[0]; // demo fallback (Task 17 rewrites Join)
+  const inviter = snap.people[(group.members || []).find(id => id !== 'me')] || window.DATA.people.alex;
   const [stage, setStage] = React.useState('landing'); // landing | signing | verifying | joined
 
   const handleSignIn = () => {
@@ -26,7 +27,7 @@ function JoinScreen({ goBack, navigate, onSignIn }) {
       />
 
       <div style={{ flex: 1, overflow: 'auto', padding: '0 24px' }}>
-        {stage === 'landing' && <Landing group={group} inviter={inviter} onSignIn={handleSignIn} />}
+        {stage === 'landing' && <Landing group={group} inviter={inviter} people={snap.people} onSignIn={handleSignIn} />}
         {stage === 'signing' && <SigningIn />}
         {stage === 'verifying' && <Verifying group={group} />}
         {stage === 'joined' && <Joined group={group} onEnter={() => { goBack(); navigate({ screen: 'group', id: group.id }); }} />}
@@ -35,8 +36,7 @@ function JoinScreen({ goBack, navigate, onSignIn }) {
   );
 }
 
-function Landing({ group, inviter, onSignIn }) {
-  const people = window.DATA.people;
+function Landing({ group, inviter, people, onSignIn }) {
   const handleClick = () => onSignIn({ anchorEl: document.getElementById('__google_anchor_join') });
   return (
     <>

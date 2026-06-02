@@ -1,7 +1,8 @@
 // Home screen — your overall balance + list of groups.
 
-function HomeScreen({ tweaks, navigate, user }) {
-  const { groups, friends, people } = window.DATA;
+function HomeScreen({ store, tweaks, navigate, user }) {
+  const snap = store.getSnapshot();
+  const { groups, friends, people } = snap;
   const greetingName = (user?.givenName) || 'Sam';
 
   // Personal net balance in display currency

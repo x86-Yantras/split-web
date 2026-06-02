@@ -1,9 +1,10 @@
 // Group detail screen.
 
-function GroupScreen({ groupId, navigate, goBack }) {
-  const group = window.DATA.groups.find(g => g.id === groupId);
-  const expenses = window.DATA.expenses[groupId] || [];
-  const people = window.DATA.people;
+function GroupScreen({ store, groupId, navigate, goBack }) {
+  const snap = store.getSnapshot();
+  const group = snap.groups.find(g => g.id === groupId);
+  const expenses = (snap.expenses[groupId] || []).filter(e => !e.deleted);
+  const people = snap.people;
   const [tab, setTab] = React.useState('expenses');
 
   if (!group) return null;
@@ -70,7 +71,7 @@ function GroupScreen({ groupId, navigate, goBack }) {
       </div>
 
       {tab === 'expenses' ? <ExpensesList expenses={expenses} group={group} people={people} navigate={navigate} />
-        : tab === 'balances' ? <BalancesList group={group} expenses={expenses} people={people} navigate={navigate} />
+        : tab === 'balances' ? <BalancesList group={group} expenses={expenses} payments={snap.payments[groupId] || []} people={people} navigate={navigate} store={store} />
         : <TotalsList group={group} expenses={expenses} people={people} />}
 
       <div style={{ height: 24 }} />

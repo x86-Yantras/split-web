@@ -1,7 +1,7 @@
 // Friend detail — shared expenses across groups with one person.
 
-function FriendScreen({ friendId, goBack, navigate }) {
-  const { people, friends, expenses, groups } = window.DATA;
+function FriendScreen({ store, friendId, goBack, navigate }) {
+  const { people, friends, expenses, groups } = store.getSnapshot();
   const p = people[friendId];
   const f = friends.find(x => x.id === friendId);
   if (!p) return null;

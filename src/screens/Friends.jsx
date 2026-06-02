@@ -1,7 +1,7 @@
 // Friends list — single contact aggregated across groups.
 
-function FriendsScreen({ navigate, tweaks }) {
-  const { friends, people } = window.DATA;
+function FriendsScreen({ store, navigate, tweaks }) {
+  const { friends, people } = store.getSnapshot();
   const display = tweaks.displayCurrency;
 
   const owedToMe = friends.filter(f => f.balance > 0).sort((a, b) =>

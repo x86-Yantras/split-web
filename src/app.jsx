@@ -12,11 +12,21 @@ function App() {
   const [stack, setStack] = React.useState([]); // pushed screens above tab
   const [tweaks, setTweak] = window.useTweaks(TWEAK_DEFAULTS);
 
-  // Subscribe to auth changes from anywhere in the app.
+  const store = window.useStore();
+
+  // Subscribe to auth changes; (re)build the store when the user changes.
   React.useEffect(() => {
     if (!window.SSAuth) return;
-    return window.SSAuth.onChange((u) => setUser(u));
+    return window.SSAuth.onChange((u) => { window.SSResetStore(); setUser(u); });
   }, []);
+
+  // Hydrate (or seed) the store once signed in.
+  React.useEffect(() => {
+    if (!signedIn) return;
+    const s = window.SSGetStore();
+    s.hydrate().then(() => { if (!s.getSnapshot().groups.length) window.SSSeedFromMock(s); })
+      .catch(() => window.SSSeedFromMock(s));
+  }, [signedIn]);
 
   const handleSignIn = (opts) => window.SSAuth?.signIn(opts);
   const handleSignOut = () => { window.SSAuth?.signOut(); setStack([]); setTab('home'); };
@@ -35,19 +45,20 @@ function App() {
   if (!signedIn) {
     inner = <SignInScreen onSignIn={handleSignIn} />;
   } else if (top) {
-    if (top.screen === 'group') inner = <GroupScreen groupId={top.id} navigate={navigate} goBack={goBack} />;
-    else if (top.screen === 'addExpense') inner = <AddExpenseScreen groupId={top.groupId} goBack={goBack} navigate={navigate} />;
-    else if (top.screen === 'settle') inner = <SettleScreen friendId={top.friendId} groupId={top.groupId} goBack={goBack} />;
-    else if (top.screen === 'friend') inner = <FriendScreen friendId={top.friendId} goBack={goBack} navigate={navigate} />;
-    else if (top.screen === 'newGroup') inner = <NewGroupScreen goBack={goBack} />;
-    else if (top.screen === 'invite') inner = <InviteScreen groupId={top.groupId} goBack={goBack} />;
-    else if (top.screen === 'join') inner = <JoinScreen goBack={goBack} navigate={navigate} onSignIn={handleSignIn} />;
+    if (top.screen === 'group') inner = <GroupScreen store={store} groupId={top.id} navigate={navigate} goBack={goBack} />;
+    else if (top.screen === 'addExpense') inner = <AddExpenseScreen store={store} groupId={top.groupId} goBack={goBack} navigate={navigate} />;
+    else if (top.screen === 'settle') inner = <SettleScreen store={store} friendId={top.friendId} groupId={top.groupId} goBack={goBack} />;
+    else if (top.screen === 'friend') inner = <FriendScreen store={store} friendId={top.friendId} goBack={goBack} navigate={navigate} />;
+    else if (top.screen === 'newGroup') inner = <NewGroupScreen store={store} goBack={goBack} />;
+    else if (top.screen === 'invite') inner = <InviteScreen store={store} groupId={top.groupId} goBack={goBack} />;
+    else if (top.screen === 'join') inner = <JoinScreen store={store} goBack={goBack} navigate={navigate} onSignIn={handleSignIn} />;
+    else if (top.screen === 'expense') inner = <ExpenseScreen store={store} groupId={top.groupId} expenseId={top.expenseId} goBack={goBack} />;
     else inner = <div>Unknown screen</div>;
   } else {
-    if (tab === 'home') inner = <HomeScreen tweaks={tweaks} navigate={navigate} user={user} />;
-    else if (tab === 'friends') inner = <FriendsScreen tweaks={tweaks} navigate={navigate} />;
-    else if (tab === 'activity') inner = <ActivityScreen navigate={navigate} />;
-    else if (tab === 'profile') inner = <ProfileScreen onSignOut={handleSignOut} tweaks={tweaks} setTweak={setTweak} user={user} />;
+    if (tab === 'home') inner = <HomeScreen store={store} tweaks={tweaks} navigate={navigate} user={user} />;
+    else if (tab === 'friends') inner = <FriendsScreen store={store} tweaks={tweaks} navigate={navigate} />;
+    else if (tab === 'activity') inner = <ActivityScreen store={store} navigate={navigate} />;
+    else if (tab === 'profile') inner = <ProfileScreen store={store} onSignOut={handleSignOut} tweaks={tweaks} setTweak={setTweak} user={user} />;
   }
 
   return (
@@ -88,7 +99,7 @@ function App() {
 }
 
 // New group screen — simple stub.
-function NewGroupScreen({ goBack }) {
+function NewGroupScreen({ store, goBack }) {
   const [name, setName] = React.useState('');
   const [emoji, setEmoji] = React.useState('🧳');
   const [currency, setCurrency] = React.useState('USD');
@@ -179,7 +190,7 @@ function NewGroupScreen({ goBack }) {
         <SectionLabel>Members</SectionLabel>
         <div style={{ padding: '0 0 8px' }}>
           <div style={{ background: SS.surface, borderRadius: 16, border: `1px solid ${SS.hairline}`, overflow: 'hidden' }}>
-            <Row left={<Avatar person={window.DATA.me} size={38} />} title="You" sub="admin" right={null} />
+            <Row left={<Avatar person={store.getSnapshot().me} size={38} />} title="You" sub="admin" right={null} />
             <HR inset={62} />
             <Row left={<div style={{
               width: 38, height: 38, borderRadius: 999, background: SS.surfaceAlt,

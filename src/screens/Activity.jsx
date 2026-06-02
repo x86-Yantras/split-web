@@ -1,7 +1,8 @@
 // Activity feed.
 
-function ActivityScreen({ navigate }) {
-  const { activity, people, groups } = window.DATA;
+function ActivityScreen({ store, navigate }) {
+  const { people, groups } = store.getSnapshot();
+  const activity = (window.SSActivity && window.SSActivity(store)) || [];
   const groupBy = id => groups.find(g => g.id === id);
 
   return (

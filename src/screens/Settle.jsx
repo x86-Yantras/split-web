@@ -1,7 +1,7 @@
 // Settle up flow.
 
-function SettleScreen({ friendId, groupId, goBack }) {
-  const { people, friends, me } = window.DATA;
+function SettleScreen({ store, friendId, groupId, goBack }) {
+  const { people, friends, me } = store.getSnapshot();
   const [selectedFriend, setSelectedFriend] = React.useState(friendId || null);
   const [amount, setAmount] = React.useState('');
   const [method, setMethod] = React.useState('paypal');

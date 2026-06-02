@@ -176,12 +176,65 @@
       notify();
     }
 
+    function _injectMockGroup(groupId, sheetId, events) {
+      G[groupId] = { id: groupId, sheetId, events, lastSeq: events.length };
+      notify();
+    }
+
     return {
       getSnapshot, subscribe, hydrate, flush, pullGroup,
       createGroup, addMember, addExpense, editExpense, deleteExpense, recordPayment, addComment, setPayPalHandle,
+      _injectMockGroup,
       get index() { return index; },
     };
   }
 
   return { createStore };
 });
+
+// ----- Browser singleton + React hook (no-op under Node) -----
+if (typeof window !== 'undefined') {
+  (function () {
+    function uuid() {
+      // RFC4122-ish; fine for client-minted ids.
+      return 'xxxxxxxxyxxx'.replace(/[xy]/g, c => {
+        const r = (Math.random() * 16) | 0; return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+      }) + '-' + Date.now().toString(36);
+    }
+    let instance = null;
+    window.SSGetStore = function () {
+      if (!instance) {
+        instance = window.createStore({
+          sheets: window.SSSheets, storage: window.localStorage,
+          now: () => Date.now(), genId: uuid, user: window.SSAuth.getUser(),
+        });
+      }
+      return instance;
+    };
+    window.SSResetStore = function () { instance = null; };
+    window.SSSeedFromMock = function (store) {
+      // Dev-only: import window.DATA into the store WITHOUT touching Sheets (in-memory only).
+      if (!window.DATA || store.getSnapshot().groups.length) return;
+      // Build synthetic event logs per group so the fold path is exercised.
+      const D = window.SSDomain;
+      for (const g of window.DATA.groups) {
+        const sheetId = 'mock:' + g.id;
+        const ev = [];
+        let seq = 0;
+        const push = (type, payload) => ev.push({ seq: ++seq, id: 'mock' + seq + g.id, type, actor: 'me', ts: Date.now(), payload });
+        push(D.EVENT.GROUP_CREATED, { name: g.name, emoji: g.emoji, cover: g.cover, currency: g.currency });
+        for (const id of g.members) {
+          const p = window.DATA.people[id];
+          push(D.EVENT.MEMBER_ADDED, { person_id: id, name: p.name, color: p.color, role: id === 'me' ? 'admin' : 'member', paypal: p.paypal });
+        }
+        for (const e of (window.DATA.expenses[g.id] || [])) push(D.EVENT.EXPENSE_ADDED, e);
+        store._injectMockGroup(g.id, sheetId, ev);
+      }
+    };
+    // React hook: subscribe to the store; returns the live snapshot.
+    window.useStore = function () {
+      const store = window.SSGetStore();
+      return React.useSyncExternalStore(store.subscribe, store.getSnapshot);
+    };
+  })();
+}
