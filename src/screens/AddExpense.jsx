@@ -14,11 +14,23 @@ function AddExpenseScreen({ store, groupId, goBack, navigate }) {
   const [splitMode, setSplitMode] = React.useState('equal');
   const [participants, setParticipants] = React.useState(new Set(group.members));
   const [showSplitSheet, setShowSplitSheet] = React.useState(false);
+  const [shares, setShares] = React.useState({});
+  const [percents, setPercents] = React.useState({});
+  const [exacts, setExacts] = React.useState({});
 
   React.useEffect(() => {
     setParticipants(new Set(group.members));
     setCurrency(group.currency);
   }, [group.id]);
+
+  React.useEffect(() => {
+    const list = [...participants];
+    setShares(Object.fromEntries(list.map(p => [p, 1])));
+    const eq = list.length ? Math.round(100 / list.length) : 0;
+    setPercents(Object.fromEntries(list.map(p => [p, eq])));
+    const share = amountNum / Math.max(1, list.length);
+    setExacts(Object.fromEntries(list.map(p => [p, share.toFixed(2)])));
+  }, [participants, amountNum]);
 
   const amountNum = parseFloat(amount) || 0;
   const partCount = participants.size;
@@ -32,13 +44,31 @@ function AddExpenseScreen({ store, groupId, goBack, navigate }) {
     return splitMode;
   })();
 
+  const [saving, setSaving] = React.useState(false);
+  const handleSave = async () => {
+    if (!amountNum || !desc.trim() || saving) return;
+    setSaving(true);
+    const partList = [...participants];
+    const expense = {
+      date: new Date().toISOString().slice(0, 10),
+      desc: desc.trim(), emoji, category: 'Other',
+      amount: amountNum, currency, paidBy, split: splitMode,
+      participants: partList,
+    };
+    if (splitMode === 'shares') expense.shares = Object.fromEntries(partList.map(p => [p, +shares[p] || 0]));
+    if (splitMode === 'percent') expense.percents = Object.fromEntries(partList.map(p => [p, +percents[p] || 0]));
+    if (splitMode === 'exact') expense.exacts = Object.fromEntries(partList.map(p => [p, String(exacts[p] || '0')]));
+    try { await store.addExpense(group.id, expense); goBack(); }
+    catch (e) { setSaving(false); alert('Could not save the expense. Try again.'); }
+  };
+
   return (
     <Screen scroll={false} style={{ display: 'flex', flexDirection: 'column' }}>
       <Header
         leading={<IconBtn name="close" onClick={goBack} />}
         title="New expense"
         trailing={
-          <button onClick={goBack} disabled={!amountNum || !desc.trim()} style={{
+          <button onClick={handleSave} disabled={!amountNum || !desc.trim()} style={{
             background: 'none', border: 'none', cursor: amountNum && desc.trim() ? 'pointer' : 'default',
             color: amountNum && desc.trim() ? SS.accent : SS.muted,
             fontFamily: 'Geist, system-ui', fontSize: 15, fontWeight: 600, padding: 0,
@@ -194,13 +224,17 @@ function AddExpenseScreen({ store, groupId, goBack, navigate }) {
         padding: '12px 20px 16px', background: SS.bg,
         borderTop: `1px solid ${SS.hairline}`,
       }}>
-        <Button variant="accent" size="lg" fullWidth onClick={goBack}
-          disabled={!amountNum || !desc.trim()}>
+        <Button variant="accent" size="lg" fullWidth onClick={handleSave}
+          disabled={!amountNum || !desc.trim() || saving}>
           Add expense
         </Button>
       </div>
 
-      {showSplitSheet && <SplitSheet mode={splitMode} setMode={setSplitMode} amount={amountNum} currency={currency} participants={participants} people={people} onClose={() => setShowSplitSheet(false)} />}
+      {showSplitSheet && <SplitSheet mode={splitMode} setMode={setSplitMode} amount={amountNum} currency={currency}
+        participants={participants} people={people}
+        shares={shares} setShares={setShares} percents={percents} setPercents={setPercents}
+        exacts={exacts} setExacts={setExacts}
+        onClose={() => setShowSplitSheet(false)} />}
     </Screen>
   );
 }
@@ -242,15 +276,9 @@ function CcyPicker({ code, onChange }) {
   );
 }
 
-function SplitSheet({ mode, setMode, amount, currency, participants, people, onClose }) {
+function SplitSheet({ mode, setMode, amount, currency, participants, people, shares, setShares, percents, setPercents, exacts, setExacts, onClose }) {
   const partList = [...participants];
   const equalShare = amount / Math.max(1, partList.length);
-  const [shares, setShares] = React.useState(() => Object.fromEntries(partList.map(p => [p, 1])));
-  const [percents, setPercents] = React.useState(() => {
-    const eq = 100 / partList.length;
-    return Object.fromEntries(partList.map(p => [p, Math.round(eq)]));
-  });
-  const [exacts, setExacts] = React.useState(() => Object.fromEntries(partList.map(p => [p, equalShare.toFixed(2)])));
 
   const modes = [
     { id: 'equal', label: 'Equally', sub: 'Same for everyone' },
