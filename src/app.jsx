@@ -48,7 +48,7 @@ function App() {
     else if (top.screen === 'settle') inner = <SettleScreen store={store} friendId={top.friendId} groupId={top.groupId} goBack={goBack} />;
     else if (top.screen === 'friend') inner = <FriendScreen store={store} friendId={top.friendId} goBack={goBack} navigate={navigate} />;
     else if (top.screen === 'newGroup') inner = <NewGroupScreen store={store} goBack={goBack} navigate={navigate} />;
-    else if (top.screen === 'invite') inner = <InviteScreen store={store} groupId={top.groupId} goBack={goBack} />;
+    else if (top.screen === 'invite') inner = <InviteScreen store={store} groupId={top.groupId} goBack={goBack} navigate={navigate} />;
     else if (top.screen === 'join') inner = <JoinScreen store={store} goBack={goBack} navigate={navigate} onSignIn={handleSignIn} />;
     else if (top.screen === 'expense') inner = <ExpenseScreen store={store} groupId={top.groupId} expenseId={top.expenseId} goBack={goBack} />;
     else inner = <div>Unknown screen</div>;

@@ -1,11 +1,28 @@
 // Invite flow — enter Gmail → add as Sheets editor (silently) → share deep link.
 
-function InviteScreen({ store, groupId, goBack }) {
+function InviteScreen({ store, groupId, goBack, navigate }) {
   const groups = store.getSnapshot().groups;
   const [group, setGroup] = React.useState(groupId ? groups.find(g => g.id === groupId) : groups[0]);
   const [email, setEmail] = React.useState('');
   const [stage, setStage] = React.useState('email'); // email | provisioning | ready
   const [link, setLink] = React.useState('');
+
+  // Invites add someone to a specific group's sheet — there must be a group.
+  // Reached with no groupId from Home/Friends "Invite friends" on a fresh account.
+  if (!group) {
+    return (
+      <Screen scroll={false} style={{ display: 'flex', flexDirection: 'column' }}>
+        <Header leading={<IconBtn name="close" onClick={goBack} />} title="Invite to group" />
+        <EmptyState
+          emoji="🧳"
+          title="Create a group first"
+          sub="Invites add someone to a specific group's shared sheet. Make a group, then invite people to it."
+          cta="New group"
+          onCta={() => { goBack(); if (navigate) navigate({ screen: 'newGroup' }); }}
+        />
+      </Screen>
+    );
+  }
 
   const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
