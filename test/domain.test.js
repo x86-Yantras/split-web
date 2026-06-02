@@ -49,3 +49,63 @@ test('shareOf: returns one person, 0 if not a participant', () => {
   assertClose(D.shareOf(e, 'me'), 30, 'me');
   assert.equal(D.shareOf(e, 'zzz'), 0);
 });
+
+// ── CYCLE B: balances + summaries ───────────────────────────────────────────
+const { payment } = require('./helpers');
+
+test('memberNets: payer credited, participants debited', () => {
+  const exps = [expense({ amount: 90, paidBy: 'me', participants: ['me', 'a', 'b'] })];
+  const net = D.memberNets(exps, [], ['me', 'a', 'b']);
+  assertClose(net.me, 60, 'me net = paid 90 - used 30');
+  assertClose(net.a, -30, 'a'); assertClose(net.b, -30, 'b');
+});
+
+test('memberNets: a payment from debtor to creditor moves both toward 0', () => {
+  const exps = [expense({ amount: 90, paidBy: 'me', participants: ['me', 'a', 'b'] })];
+  const net = D.memberNets(exps, [payment({ from: 'a', to: 'me', amount: 30 })], ['me', 'a', 'b']);
+  assertClose(net.a, 0, 'a paid back');
+  assertClose(net.me, 30, 'me now owed 30 (b still owes)');
+});
+
+test('memberNets: deleted expenses are ignored', () => {
+  const exps = [expense({ amount: 90, deleted: true })];
+  const net = D.memberNets(exps, [], ['me', 'a', 'b']);
+  assertClose(net.me, 0, 'me'); assertClose(net.a, 0, 'a');
+});
+
+test('balancesWithMe: positive means they owe me', () => {
+  const exps = [expense({ amount: 100, paidBy: 'me', participants: ['me', 'a'] })];
+  const b = D.balancesWithMe(exps, [], ['me', 'a']);
+  assertClose(b.a, 50, 'a owes me half');
+});
+
+test('balancesWithMe: when other paid and I am in, I owe them (negative)', () => {
+  const exps = [expense({ amount: 100, paidBy: 'a', participants: ['me', 'a'] })];
+  const b = D.balancesWithMe(exps, [], ['me', 'a']);
+  assertClose(b.a, -50, 'I owe a');
+});
+
+test('groupSummary: splits net into youOwe / youAreOwed', () => {
+  const exps = [
+    expense({ amount: 100, paidBy: 'me', participants: ['me', 'a'] }),
+    expense({ amount: 40, paidBy: 'b', participants: ['me', 'b'] }),
+  ];
+  const s = D.groupSummary(exps, [], ['me', 'a', 'b']);
+  assertClose(s.youAreOwed, 50, 'owed'); assertClose(s.youOwe, 20, 'owe');
+});
+
+test('friendBalances: rolls up per (friend,currency), drops settled', () => {
+  const groups = [
+    { id: 'g1', currency: 'USD', members: ['me', 'a'] },
+    { id: 'g2', currency: 'EUR', members: ['me', 'a', 'b'] },
+  ];
+  const expensesByGroup = {
+    g1: [expense({ amount: 100, currency: 'USD', paidBy: 'me', participants: ['me', 'a'] })],
+    g2: [expense({ amount: 60, currency: 'EUR', paidBy: 'b', participants: ['me', 'b'] })],
+  };
+  const fb = D.friendBalances(groups, expensesByGroup, {}, 'me');
+  const aUsd = fb.find(x => x.id === 'a' && x.currency === 'USD');
+  const bEur = fb.find(x => x.id === 'b' && x.currency === 'EUR');
+  assertClose(aUsd.balance, 50, 'a USD'); assertClose(bEur.balance, -30, 'b EUR');
+  assert.ok(!fb.some(x => x.balance === 0), 'no settled rows');
+});
