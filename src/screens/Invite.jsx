@@ -186,6 +186,18 @@ function ReadyStage({ email, group, link, goBack }) {
     setTimeout(() => setCopied(false), 1400);
   };
 
+  const url = 'https://' + link;
+  const msg = `Join our ${group.name} on SplitSplit ✌️ ${url}`;
+  const share = {
+    WhatsApp: () => window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank', 'noopener'),
+    Messages: () => window.open('sms:?&body=' + encodeURIComponent(msg), '_blank'),
+    Mail: () => window.open('mailto:' + encodeURIComponent(email) + '?subject=' + encodeURIComponent('Join ' + group.name + ' on SplitSplit') + '&body=' + encodeURIComponent(msg), '_blank'),
+    More: async () => {
+      if (navigator.share) { try { await navigator.share({ title: 'SplitSplit', text: `Join ${group.name} on SplitSplit`, url }); return; } catch (e) {} }
+      if (navigator.clipboard) { try { await navigator.clipboard.writeText(url); alert('Link copied'); } catch (e) {} }
+    },
+  };
+
   return (
     <>
       {/* Success badge */}
@@ -242,16 +254,16 @@ function ReadyStage({ email, group, link, goBack }) {
       {/* Share targets */}
       <SectionLabel>Share with</SectionLabel>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-        <ShareTile label="WhatsApp" color="#25D366" glyph={
+        <ShareTile label="WhatsApp" color="#25D366" onClick={share.WhatsApp} glyph={
           <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M12 2C6.5 2 2 6.5 2 12c0 1.8.5 3.5 1.4 5L2 22l5.1-1.3c1.4.8 3.1 1.3 4.9 1.3 5.5 0 10-4.5 10-10S17.5 2 12 2zm5.4 14.1c-.2.6-1.3 1.2-1.8 1.2-.5.1-1.1.1-1.7-.1-.4-.1-1-.3-1.7-.6-3-1.3-5-4.3-5.1-4.5-.1-.2-1.2-1.6-1.2-3 0-1.4.7-2.1 1-2.4.3-.3.6-.4.8-.4h.6c.2 0 .4 0 .7.5l.9 2.2c.1.2.1.4 0 .6-.1.2-.2.3-.3.5-.2.2-.3.4-.5.6-.2.2-.3.3-.1.7.2.4.9 1.4 1.8 2.3 1.2 1.1 2.2 1.4 2.5 1.6.3.2.5.1.7-.1.2-.2.8-.9 1-1.2.2-.3.4-.3.6-.2l2.1.9c.3.1.4.2.5.3.1.2 0 .8-.2 1.1z"/></svg>
         } />
-        <ShareTile label="Messages" color="#34C759" glyph={
+        <ShareTile label="Messages" color="#34C759" onClick={share.Messages} glyph={
           <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M12 2C6.5 2 2 6 2 11c0 2.4 1.1 4.6 3 6.2V22l3.8-2.5c1 .3 2.1.5 3.2.5 5.5 0 10-4 10-9s-4.5-9-10-9z"/></svg>
         } />
-        <ShareTile label="Mail" color="#4F81E0" glyph={
+        <ShareTile label="Mail" color="#4F81E0" onClick={share.Mail} glyph={
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 8l9 6 9-6"/></svg>
         } />
-        <ShareTile label="More" color={SS.ink} glyph={
+        <ShareTile label="More" color={SS.ink} onClick={share.More} glyph={
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round"><path d="M12 4v12M6 10l6-6 6 6M5 20h14"/></svg>
         } />
       </div>
@@ -282,9 +294,9 @@ function ReadyStage({ email, group, link, goBack }) {
   );
 }
 
-function ShareTile({ label, color, glyph }) {
+function ShareTile({ label, color, glyph, onClick }) {
   return (
-    <button style={{
+    <button onClick={onClick} style={{
       background: 'none', border: 'none', padding: 0, cursor: 'pointer',
       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
     }}>
