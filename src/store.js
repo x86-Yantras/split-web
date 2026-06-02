@@ -219,6 +219,11 @@
       return out;
     }
 
+    function commentsFor(groupId, expenseId) {
+      const folded = D.foldEvents(G[groupId] ? G[groupId].events : []);
+      return folded.comments.filter(c => c.expense_id === expenseId);
+    }
+
     function _injectMockGroup(groupId, sheetId, events) {
       G[groupId] = { id: groupId, sheetId, events, lastSeq: events.length };
       notify();
@@ -227,7 +232,7 @@
     return {
       getSnapshot, subscribe, hydrate, flush, pullGroup, joinGroup,
       createGroup, addMember, addExpense, editExpense, deleteExpense, recordPayment, addComment, setPayPalHandle, inviteByEmail,
-      allActivity,
+      allActivity, commentsFor,
       _injectMockGroup,
       get index() { return index; },
     };
