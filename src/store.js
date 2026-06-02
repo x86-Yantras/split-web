@@ -148,6 +148,21 @@
       await flush();
     }
 
+    async function inviteByEmail(groupId, email) {
+      const g = G[groupId];
+      email = email.toLowerCase();
+      await sheets.permissionsCreate(g.sheetId, email);
+      const personId = 'p_' + email.replace(/[^a-z0-9]/g, '').slice(0, 12);
+      appendLocal(groupId, D.EVENT.MEMBER_ADDED, {
+        person_id: personId, email: email.toLowerCase(),
+        name: email.split('@')[0], color: PALETTE[(Object.keys(G).length + email.length) % PALETTE.length], role: 'member',
+      });
+      await flush();
+      const raw = groupId + ':' + email.toLowerCase() + ':' + now();
+      const token = (typeof btoa !== 'undefined' ? btoa(raw) : Buffer.from(raw).toString('base64')).replace(/=/g, '').slice(0, 16);
+      return { token, link: deps.appOrigin ? deps.appOrigin + '/join/' + groupId + '?t=' + token : 'splitsplit.app/join/' + groupId + '?t=' + token };
+    }
+
     // ---- sync ----
     async function pullGroup(groupId) {
       const g = G[groupId];
@@ -183,7 +198,7 @@
 
     return {
       getSnapshot, subscribe, hydrate, flush, pullGroup,
-      createGroup, addMember, addExpense, editExpense, deleteExpense, recordPayment, addComment, setPayPalHandle,
+      createGroup, addMember, addExpense, editExpense, deleteExpense, recordPayment, addComment, setPayPalHandle, inviteByEmail,
       _injectMockGroup,
       get index() { return index; },
     };
@@ -207,6 +222,7 @@ if (typeof window !== 'undefined') {
         instance = window.createStore({
           sheets: window.SSSheets, storage: window.localStorage,
           now: () => Date.now(), genId: uuid, user: window.SSAuth.getUser(),
+          appOrigin: window.location.origin,
         });
       }
       return instance;

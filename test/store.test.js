@@ -115,3 +115,15 @@ test('hydrate: rebuilds state from sheets + index on init', async () => {
   assert.equal(b.getSnapshot().groups.length, 1);
   assert.equal(b.getSnapshot().groups[0].name, 'Trip');
 });
+
+test('inviteByEmail: grants writer perm, adds member, returns a link', async () => {
+  const sheets = fakeSheets();
+  let granted = null;
+  sheets.permissionsCreate = async (id, email) => { granted = email; return { id: 'perm' }; };
+  const store = newStore(sheets);
+  const g = await store.createGroup({ name: 'T', emoji: '🏠', cover: 'g', currency: 'USD' });
+  const { link } = await store.inviteByEmail(g.id, 'Friend@Gmail.com');
+  assert.equal(granted, 'friend@gmail.com');
+  assert.match(link, /\/join\/.+\?t=.+/);
+  assert.ok(store.getSnapshot().groups.find(x => x.id === g.id).members.some(m => m.startsWith('p_')));
+});

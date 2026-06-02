@@ -9,14 +9,16 @@ function InviteScreen({ store, groupId, goBack }) {
 
   const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     setStage('provisioning');
-    // Simulate Drive API: grant editor permission, sendNotificationEmail: false
-    setTimeout(() => {
-      const token = btoa(`${group.id}:${email}:${Date.now()}`).replace(/=/g, '').slice(0, 16);
-      setLink(`splitsplit.app/join/${group.id}?t=${token}`);
+    try {
+      const { link } = await store.inviteByEmail(group.id, email.trim());
+      setLink(link.replace(/^https?:\/\//, ''));
       setStage('ready');
-    }, 1600);
+    } catch (e) {
+      setStage('email');
+      alert('Could not add them. Make sure the group has a real Sheet and you are online.');
+    }
   };
 
   return (
