@@ -10,6 +10,15 @@ function App() {
   const signedIn = !!user;
   const [tab, setTab] = React.useState('home');
   const [stack, setStack] = React.useState([]); // pushed screens above tab
+
+  // Deep-link join: /join/<groupId>?s=<sheetId>&t=<token>. Parsed once on load.
+  const [joinLink] = React.useState(() => {
+    const m = window.location.pathname.match(/^\/join\/([^/?#]+)/);
+    if (!m) return null;
+    const q = new URLSearchParams(window.location.search);
+    return { groupId: decodeURIComponent(m[1]), sheetId: q.get('s'), token: q.get('t') };
+  });
+  const [joinDone, setJoinDone] = React.useState(false);
   const [tweaks, setTweak] = window.useTweaks(TWEAK_DEFAULTS);
 
   const store = window.useStore();
@@ -38,9 +47,17 @@ function App() {
   }, []);
 
   const top = stack[stack.length - 1];
+  const joinActive = joinLink && !joinDone;
 
   let inner;
-  if (!signedIn) {
+  if (joinActive) {
+    // Render the deep-link Join flow regardless of sign-in state — it does its own sign-in.
+    inner = <JoinScreen
+      store={store} joinLink={joinLink} onSignIn={handleSignIn} navigate={navigate}
+      goBack={() => { window.history.replaceState({}, '', '/'); setJoinDone(true); }}
+      onEntered={(gid) => { window.history.replaceState({}, '', '/'); setJoinDone(true); setStack([{ screen: 'group', id: gid }]); }}
+    />;
+  } else if (!signedIn) {
     inner = <SignInScreen onSignIn={handleSignIn} />;
   } else if (top) {
     if (top.screen === 'group') inner = <GroupScreen store={store} groupId={top.id} navigate={navigate} goBack={goBack} />;
@@ -63,10 +80,10 @@ function App() {
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: SS.bg }}>
       <div style={{ height: 62, flexShrink: 0, background: SS.bg }} />
       <div style={{ flex: 1, minHeight: 0 }}>{inner}</div>
-      {signedIn && !top && (
+      {signedIn && !top && !joinActive && (
         <TabBar active={tab} onChange={setTab} onAdd={() => navigate({ screen: 'newGroup' })} />
       )}
-      {signedIn && top && (
+      {(joinActive || (signedIn && top)) && (
         <div style={{ height: 34, flexShrink: 0, background: SS.bg }} />
       )}
 

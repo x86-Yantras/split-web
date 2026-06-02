@@ -30,7 +30,7 @@ function InviteScreen({ store, groupId, goBack, navigate }) {
     setStage('provisioning');
     try {
       const { link } = await store.inviteByEmail(group.id, email.trim());
-      setLink(link.replace(/^https?:\/\//, ''));
+      setLink(link); // full URL incl. scheme (http on local dev, https in prod)
       setStage('ready');
     } catch (e) {
       setStage('email');
@@ -199,11 +199,11 @@ function ReadyStage({ email, group, link, goBack }) {
   const [copied, setCopied] = React.useState(false);
   const handleCopy = () => {
     setCopied(true);
-    if (navigator.clipboard) navigator.clipboard.writeText('https://' + link).catch(() => {});
+    if (navigator.clipboard) navigator.clipboard.writeText(link).catch(() => {});
     setTimeout(() => setCopied(false), 1400);
   };
 
-  const url = 'https://' + link;
+  const url = link;
   const msg = `Join our ${group.name} on SplitSplit ✌️ ${url}`;
   const share = {
     WhatsApp: () => window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank', 'noopener'),
@@ -300,7 +300,7 @@ function ReadyStage({ email, group, link, goBack }) {
           borderRadius: 8, fontFamily: 'Geist Mono, ui-monospace, monospace',
           fontSize: 11.5, color: '#075E54', textDecoration: 'none',
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-        }}>https://{link}</a>
+        }}>{link}</a>
         <div style={{ fontFamily: 'Geist, system-ui', fontSize: 10, color: '#667781', textAlign: 'right', marginTop: 4 }}>9:41 ✓✓</div>
       </div>
 

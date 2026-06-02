@@ -160,7 +160,10 @@
       await flush();
       const raw = groupId + ':' + email.toLowerCase() + ':' + now();
       const token = (typeof btoa !== 'undefined' ? btoa(raw) : Buffer.from(raw).toString('base64')).replace(/=/g, '').slice(0, 16);
-      return { token, link: deps.appOrigin ? deps.appOrigin + '/join/' + groupId + '?t=' + token : 'splitsplit.app/join/' + groupId + '?t=' + token };
+      // The link carries the sheetId so the invitee can resolve which Sheet to verify
+      // against. The sheetId is not a secret — access is gated by the Drive ACL.
+      const origin = deps.appOrigin || 'https://splitsplit.app';
+      return { token, link: origin + '/join/' + groupId + '?s=' + g.sheetId + '&t=' + token };
     }
 
     async function joinGroup(groupId, sheetId) {

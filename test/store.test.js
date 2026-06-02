@@ -153,6 +153,7 @@ test('inviteByEmail: grants writer perm, adds member, returns a link', async () 
   const g = await store.createGroup({ name: 'T', emoji: '🏠', cover: 'g', currency: 'USD' });
   const { link } = await store.inviteByEmail(g.id, 'Friend@Gmail.com');
   assert.equal(granted, 'friend@gmail.com');
-  assert.match(link, /\/join\/.+\?t=.+/);
+  // link carries the sheetId (?s=) and the token (&t=) so the invitee can verify.
+  assert.match(link, /\/join\/.+\?s=.+&t=.+/);
   assert.ok(store.getSnapshot().groups.find(x => x.id === g.id).members.some(m => m.startsWith('p_')));
 });
