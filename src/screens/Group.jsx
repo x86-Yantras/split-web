@@ -9,6 +9,16 @@ function GroupScreen({ store, groupId, navigate, goBack }) {
 
   if (!group) return null;
 
+  const exportCSV = () => {
+    const csv = window.SSDomain.toCSV(group, expenses, people, 'me');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = (group.name || 'splitsplit').replace(/\s+/g, '-').toLowerCase() + '.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
   const balance = group.youAreOwed - group.youOwe;
   const balanceCol = balance > 0 ? SS.positive : balance < 0 ? SS.negative : SS.muted;
   const totalSpent = expenses.reduce((s, e) => s + e.amount, 0);
@@ -18,7 +28,7 @@ function GroupScreen({ store, groupId, navigate, goBack }) {
       <Header
         leading={<IconBtn name="chevL" onClick={goBack} />}
         title={group.name}
-        trailing={<IconBtn name="more" onClick={() => {}} />}
+        trailing={<IconBtn name="more" onClick={exportCSV} />}
       />
 
       {/* Cover hero */}
