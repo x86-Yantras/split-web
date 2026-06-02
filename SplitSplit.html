@@ -7,6 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+<link rel="manifest" href="manifest.webmanifest" />
+<meta name="theme-color" content="#FAF7F2" />
 <style>
   html, body {
     margin: 0; padding: 0; height: 100%; width: 100%;
@@ -58,6 +60,7 @@
 <script type="text/babel" src="src/ios-frame.jsx"></script>
 <script type="text/babel" src="src/tweaks-panel.jsx"></script>
 <script type="text/babel" src="src/ui.jsx"></script>
+<script type="text/babel" src="src/screens/Empty.jsx"></script>
 
 <!-- Screens -->
 <script type="text/babel" src="src/screens/SignIn.jsx"></script>
@@ -88,6 +91,13 @@
   }
   const root = ReactDOM.createRoot(document.getElementById('root'));
   root.render(<Mount />);
+</script>
+
+<!-- Service worker registration -->
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  }
 </script>
 </body>
 </html>
