@@ -4,6 +4,30 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>SplitSplit — free expense splitting</title>
+<!-- Runs FIRST: kill any leftover service worker from the old SplitSplit.html.
+     A stale SW serves cached files with the wrong MIME (octet-stream) and blanks
+     the app. Unregister it, drop its caches, and reload once (guarded so it can't loop). -->
+<script>
+(function () {
+  if (!('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.getRegistrations().then(function (rs) {
+    if (!rs.length) return;
+    Promise.all(rs.map(function (r) { return r.unregister(); })).then(function () {
+      var reloadOnce = function () {
+        if (!sessionStorage.getItem('ss-sw-killed')) {
+          sessionStorage.setItem('ss-sw-killed', '1');
+          location.reload();
+        }
+      };
+      if (window.caches && caches.keys) {
+        caches.keys()
+          .then(function (ks) { return Promise.all(ks.map(function (k) { return caches.delete(k); })); })
+          .then(reloadOnce, reloadOnce);
+      } else { reloadOnce(); }
+    });
+  });
+})();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
@@ -35,16 +59,6 @@
 </head>
 <body>
 <div id="root"></div>
-
-<!-- Self-heal: unregister any leftover service worker from the old static-server
-     SplitSplit.html (it would otherwise serve a stale cached shell under Vite). -->
-<script>
-  if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
-    navigator.serviceWorker.getRegistrations()
-      .then(rs => rs.forEach(r => r.unregister()))
-      .catch(() => {});
-  }
-</script>
 
 <!-- Google Identity Services (auth.js auto-inits once this loads) -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>

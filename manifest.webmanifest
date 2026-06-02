@@ -2,7 +2,7 @@
   "name": "SplitSplit",
   "short_name": "SplitSplit",
   "description": "Free, serverless expense splitting.",
-  "start_url": "/SplitSplit.html",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#FAF7F2",
   "theme_color": "#FAF7F2",
