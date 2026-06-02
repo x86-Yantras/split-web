@@ -180,7 +180,11 @@ function ExpenseRow({ expense, group, people, onClick }) {
   );
 }
 
-function BalancesList({ group, expenses, people, navigate }) {
+function BalancesList({ group, expenses, payments, people, navigate, store }) {
+  const D = window.SSDomain;
+  const nets = D.memberNets(expenses, payments || [], group.members);
+  const suggestions = D.minimizeTransactions(nets);
+
   // Compute net per-member (excluding me) — what they owe me or I owe them in this group.
   const net = {}; // memberId -> amount, positive = they owe me
   for (const m of group.members) if (m !== 'me') net[m] = 0;
@@ -207,6 +211,20 @@ function BalancesList({ group, expenses, people, navigate }) {
 
   return (
     <div style={{ padding: '8px 0 0' }}>
+      {suggestions.length > 0 && (
+        <div style={{ padding: '0 20px 4px' }}>
+          <div style={{ background: SS.surfaceAlt, border: `1px solid ${SS.hairline}`, borderRadius: 16, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: 'Geist, system-ui', fontSize: 13.5, fontWeight: 600, color: SS.ink }}>
+                {suggestions.length} payment{suggestions.length > 1 ? 's' : ''} settle everyone up
+              </div>
+              <div style={{ fontFamily: 'Geist, system-ui', fontSize: 12, color: SS.muted, marginTop: 2 }}>
+                {suggestions.slice(0, 3).map(s => `${people[s.from] ? (s.from === 'me' ? 'You' : people[s.from].name.split(' ')[0]) : s.from} → ${s.to === 'me' ? 'you' : (people[s.to] ? people[s.to].name.split(' ')[0] : s.to)}`).join(', ')}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       <SectionLabel>Who owes who</SectionLabel>
       <div style={{ padding: '0 12px' }}>
         <div style={{ background: SS.surface, borderRadius: 16, border: `1px solid ${SS.hairline}`, overflow: 'hidden' }}>
