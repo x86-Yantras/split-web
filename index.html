@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SplitSplit — free expense splitting</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+<link rel="manifest" href="/manifest.webmanifest" />
+<meta name="theme-color" content="#FAF7F2" />
+<style>
+  html, body {
+    margin: 0; padding: 0; height: 100%; width: 100%;
+    background: #E7E2D6;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    color: #1F1B16;
+  }
+  body {
+    background-image:
+      radial-gradient(at 20% 10%, rgba(217,119,87,0.10), transparent 50%),
+      radial-gradient(at 80% 90%, rgba(94,122,63,0.10), transparent 50%);
+    background-attachment: fixed;
+  }
+  #root {
+    width: 100%; min-height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px 0;
+    box-sizing: border-box;
+  }
+  button { font: inherit; }
+  *::-webkit-scrollbar { width: 0; height: 0; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<!-- Self-heal: unregister any leftover service worker from the old static-server
+     SplitSplit.html (it would otherwise serve a stale cached shell under Vite). -->
+<script>
+  if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+    navigator.serviceWorker.getRegistrations()
+      .then(rs => rs.forEach(r => r.unregister()))
+      .catch(() => {});
+  }
+</script>
+
+<!-- Google Identity Services (auth.js auto-inits once this loads) -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+
+<!-- Vite entry (transpiles JSX, no in-browser Babel) -->
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>
