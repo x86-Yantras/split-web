@@ -110,3 +110,6 @@ window.DATA = (function () {
 
   return { me, people, groups, expenses, friends, activity };
 })();
+
+// Bundled fallback USD rates (overwritten by each group's `rates` tab when present).
+window.SS_DEFAULT_RATES = { USD: 1, EUR: 0.92, GBP: 0.79, JPY: 156, INR: 83.4, CAD: 1.36, AUD: 1.51 };

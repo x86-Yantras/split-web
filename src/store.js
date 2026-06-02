@@ -204,6 +204,10 @@
         G[groupId].lastSeq = G[groupId].events.reduce((m, e) => Math.max(m, e.seq), 0);
         try { await pullGroup(groupId); } catch (e) {}
       }
+      // Pull pinned rates from the first group that has any; fall back to bundled.
+      for (const g of Object.values(G)) {
+        try { const r = await sheets.readRates(g.sheetId); if (r && Object.keys(r).length) { (D._CCY || (typeof window !== 'undefined' && window.CCY)).setRates(r); break; } } catch (e) {}
+      }
       notify();
     }
 
