@@ -163,6 +163,22 @@
       return { token, link: deps.appOrigin ? deps.appOrigin + '/join/' + groupId + '?t=' + token : 'splitsplit.app/join/' + groupId + '?t=' + token };
     }
 
+    async function joinGroup(groupId, sheetId) {
+      const email = (user && user.email || '').toLowerCase();
+      const acl = await sheets.permissionsList(sheetId);
+      if (!acl.includes(email)) return { ok: false, email, reason: 'not-on-acl' };
+      G[groupId] = G[groupId] || { id: groupId, sheetId, events: [], lastSeq: 0 };
+      index[groupId] = sheetId; saveIndex();
+      await pullGroup(groupId);
+      // record our membership if missing
+      const folded = D.foldEvents(G[groupId].events);
+      if (!folded.members.some(m => (m.email || '').toLowerCase() === email)) {
+        appendLocal(groupId, D.EVENT.MEMBER_ADDED, { person_id: 'me', email, name: (user && user.name) || email, color: PALETTE[0], role: 'member' });
+        await flush();
+      }
+      return { ok: true };
+    }
+
     // ---- sync ----
     async function pullGroup(groupId) {
       const g = G[groupId];
@@ -197,7 +213,7 @@
     }
 
     return {
-      getSnapshot, subscribe, hydrate, flush, pullGroup,
+      getSnapshot, subscribe, hydrate, flush, pullGroup, joinGroup,
       createGroup, addMember, addExpense, editExpense, deleteExpense, recordPayment, addComment, setPayPalHandle, inviteByEmail,
       _injectMockGroup,
       get index() { return index; },

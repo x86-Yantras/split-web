@@ -4,19 +4,23 @@ function JoinScreen({ store, goBack, navigate, onSignIn }) {
   const snap = store.getSnapshot();
   const group = snap.groups[0] || window.DATA.groups[0]; // demo fallback (Task 17 rewrites Join)
   const inviter = snap.people[(group.members || []).find(id => id !== 'me')] || window.DATA.people.alex;
-  const [stage, setStage] = React.useState('landing'); // landing | signing | verifying | joined
-
+  const [stage, setStage] = React.useState('landing'); // landing | signing | verifying | joined | wrong
+  const [error, setError] = React.useState(null);
   const handleSignIn = () => {
     setStage('signing');
-    // Kick off the real Google sign-in too (no-op if user already signed in).
-    if (onSignIn) {
-      try { onSignIn({ anchorEl: document.getElementById('__google_anchor_join') }); }
-      catch (e) { /* ignore */ }
-    }
-    setTimeout(() => {
+    if (onSignIn) { try { onSignIn({ anchorEl: document.getElementById('__google_anchor_join') }); } catch (e) {} }
+    // wait for SSAuth to report a user, then verify
+    const off = window.SSAuth.onChange(async (u) => {
+      if (!u) return;
+      off();
       setStage('verifying');
-      setTimeout(() => setStage('joined'), 1400);
-    }, 1100);
+      try {
+        const sheetId = window.SSJoinSheetId || (store.index && store.index[group.id]);
+        const res = await store.joinGroup(group.id, sheetId);
+        if (res.ok) setStage('joined');
+        else { setError(res); setStage('wrong'); }
+      } catch (e) { setError({ email: (window.SSAuth.getUser() || {}).email }); setStage('wrong'); }
+    });
   };
 
   return (
@@ -31,6 +35,7 @@ function JoinScreen({ store, goBack, navigate, onSignIn }) {
         {stage === 'signing' && <SigningIn />}
         {stage === 'verifying' && <Verifying group={group} />}
         {stage === 'joined' && <Joined group={group} onEnter={() => { goBack(); navigate({ screen: 'group', id: group.id }); }} />}
+        {stage === 'wrong' && <WrongAccount currentEmail={error && error.email} onRetry={() => { window.SSAuth.signOut(); setStage('landing'); }} />}
       </div>
     </Screen>
   );
@@ -227,6 +232,23 @@ function Joined({ group, onEnter }) {
       </div>
       <div style={{ height: 8 }} />
       <Button variant="accent" size="lg" fullWidth onClick={onEnter}>Open group</Button>
+    </div>
+  );
+}
+
+function WrongAccount({ expectedHint, currentEmail, onRetry }) {
+  return (
+    <div style={{ padding: '48px 0 0', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
+      <div style={{ width: 64, height: 64, borderRadius: 999, background: '#FBE9E2', border: `2px solid #F0CFC2`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Icon name="close" size={28} color={SS.negative} stroke={2.4} />
+      </div>
+      <div style={{ fontFamily: 'Geist, system-ui', fontSize: 19, fontWeight: 600, color: SS.ink, letterSpacing: -0.3 }}>Wrong account</div>
+      <div style={{ fontFamily: 'Geist, system-ui', fontSize: 13.5, color: SS.muted, maxWidth: 280, lineHeight: 1.5 }}>
+        You're signed in as <b style={{ color: SS.ink }}>{currentEmail}</b>, which isn't on this group's invite list. Sign in with the email the invite was sent to.
+      </div>
+      <div style={{ height: 8 }} />
+      <Button variant="accent" size="lg" fullWidth onClick={onRetry}>Try another account</Button>
     </div>
   );
 }

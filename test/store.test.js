@@ -116,6 +116,35 @@ test('hydrate: rebuilds state from sheets + index on init', async () => {
   assert.equal(b.getSnapshot().groups[0].name, 'Trip');
 });
 
+test('joinGroup: email on ACL hydrates the group and returns ok', async () => {
+  const sheets = fakeSheets();
+  // seed a real group on one store
+  const a = newStore(sheets);
+  const g = await a.createGroup({ name: 'Trip', emoji: '⛩️', cover: 'grad', currency: 'USD' });
+  // fresh store for the joiner whose email is on the ACL
+  let t = 7000, c = 200;
+  const b = createStore({
+    sheets, storage: memStorage(),
+    now: () => t++, genId: () => 'j' + (++c),
+    user: { sub: 'u2', email: 'me@x.com', name: 'Sam Park', givenName: 'Sam' },
+  });
+  sheets.permissionsList = async () => ['me@x.com', 'someone-else@x.com'];
+  const res = await b.joinGroup(g.id, g.sheetId);
+  assert.equal(res.ok, true);
+  assert.equal(b.index[g.id], g.sheetId);
+  assert.equal(b.getSnapshot().groups.find(x => x.id === g.id).name, 'Trip');
+});
+
+test('joinGroup: email NOT on ACL returns ok:false', async () => {
+  const sheets = fakeSheets();
+  sheets.permissionsList = async () => ['someone-else@x.com'];
+  const store = newStore(sheets);
+  const res = await store.joinGroup('g1', 'S1');
+  assert.equal(res.ok, false);
+  assert.equal(res.email, 'me@x.com');
+  assert.equal(res.reason, 'not-on-acl');
+});
+
 test('inviteByEmail: grants writer perm, adds member, returns a link', async () => {
   const sheets = fakeSheets();
   let granted = null;
