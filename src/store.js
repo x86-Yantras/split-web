@@ -207,6 +207,18 @@
       notify();
     }
 
+    function allActivity() {
+      const out = [];
+      const nowMs = now();
+      for (const g of Object.values(G)) {
+        const folded = D.foldEvents(g.events);
+        const feed = D.deriveActivity(g.events, g.id, meId, nowMs);
+        for (const item of feed) out.push(Object.assign({ _ts: (g.events.find(e => (e.id || ('a' + e.seq)) === item.id) || {}).ts || 0 }, item, { groupName: folded.meta.name }));
+      }
+      out.sort((a, b) => b._ts - a._ts);
+      return out;
+    }
+
     function _injectMockGroup(groupId, sheetId, events) {
       G[groupId] = { id: groupId, sheetId, events, lastSeq: events.length };
       notify();
@@ -215,6 +227,7 @@
     return {
       getSnapshot, subscribe, hydrate, flush, pullGroup, joinGroup,
       createGroup, addMember, addExpense, editExpense, deleteExpense, recordPayment, addComment, setPayPalHandle, inviteByEmail,
+      allActivity,
       _injectMockGroup,
       get index() { return index; },
     };
@@ -244,6 +257,7 @@ if (typeof window !== 'undefined') {
       return instance;
     };
     window.SSResetStore = function () { instance = null; };
+    window.SSActivity = (store) => store.allActivity();
     window.SSSeedFromMock = function (store) {
       // Dev-only: import window.DATA into the store WITHOUT touching Sheets (in-memory only).
       if (!window.DATA || store.getSnapshot().groups.length) return;

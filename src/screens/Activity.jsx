@@ -2,7 +2,7 @@
 
 function ActivityScreen({ store, navigate }) {
   const { people, groups } = store.getSnapshot();
-  const activity = (window.SSActivity && window.SSActivity(store)) || [];
+  const activity = store.allActivity();
   const groupBy = id => groups.find(g => g.id === id);
 
   return (
@@ -12,7 +12,7 @@ function ActivityScreen({ store, navigate }) {
       <div style={{ padding: '0 12px' }}>
         <div style={{ background: SS.surface, borderRadius: 18, border: `1px solid ${SS.hairline}`, overflow: 'hidden' }}>
           {activity.map((a, i) => {
-            const who = people[a.who];
+            const who = people[a.who] || { name: a.who, initials: '?', color: SS.muted };
             const grp = groupBy(a.group);
             return (
               <React.Fragment key={a.id}>
