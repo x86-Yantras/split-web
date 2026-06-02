@@ -286,10 +286,13 @@ if (typeof window !== 'undefined') {
         store._injectMockGroup(g.id, sheetId, ev);
       }
     };
-    // React hook: subscribe to the store; returns the live snapshot.
+    // React hook: subscribe so the component re-renders on store changes, and return the
+    // store INSTANCE. Screens call both reads (store.getSnapshot()) and mutations
+    // (store.addExpense/createGroup/...), so they need the instance, not the snapshot.
     window.useStore = function () {
       const store = window.SSGetStore();
-      return React.useSyncExternalStore(store.subscribe, store.getSnapshot);
+      React.useSyncExternalStore(store.subscribe, store.getSnapshot);
+      return store;
     };
   })();
 }
