@@ -1,7 +1,15 @@
 // Settle up flow.
 
 function SettleScreen({ store, friendId, groupId, goBack }) {
-  const { people, friends, me } = store.getSnapshot();
+  const snap = store.getSnapshot();
+  const { people, friends, me } = snap;
+
+  function groupForFriend(fid, ccy) {
+    if (groupId) return groupId;
+    // pick the group with this friend where our balance is largest in that currency
+    const cands = snap.groups.filter(g => g.members.includes(fid) && g.currency === ccy);
+    return (cands[0] && cands[0].id) || (snap.groups.find(g => g.members.includes(fid)) || {}).id;
+  }
   const [selectedFriend, setSelectedFriend] = React.useState(friendId || null);
   const [amount, setAmount] = React.useState('');
   const [method, setMethod] = React.useState('paypal');
@@ -59,13 +67,16 @@ function SettleScreen({ store, friendId, groupId, goBack }) {
           method={method}
           setMethod={setMethod}
           goBack={goBack}
+          store={store}
+          friendId={selectedFriend}
+          groupId={groupForFriend(selectedFriend, currency)}
         />
       )}
     </Screen>
   );
 }
 
-function AmountStep({ p, f, me, amount, setAmount, currency, suggested, method, setMethod, goBack }) {
+function AmountStep({ p, f, me, amount, setAmount, currency, suggested, method, setMethod, goBack, store, friendId, groupId }) {
   const youArePayer = f.balance < 0; // you owe them → you pay
   // The receiver is whoever is getting money: you (if they owe) or them (if you owe).
   const receiver = youArePayer ? p : me;
@@ -73,6 +84,26 @@ function AmountStep({ p, f, me, amount, setAmount, currency, suggested, method, 
   // PayPal handle state (preserve any value the user types even if data has none)
   const [paypalHandle, setPaypalHandle] = React.useState(receiver.paypal || '');
   React.useEffect(() => { setPaypalHandle(receiver.paypal || ''); }, [receiver.id]);
+
+  const [busy, setBusy] = React.useState(false);
+  const record = async (method, note) => {
+    if (busy || !groupId) { if (!groupId) alert('No shared group to record this in yet.'); return; }
+    setBusy(true);
+    const amt = parseFloat(amount) || 0;
+    const payment = {
+      date: new Date().toISOString().slice(0, 10),
+      from: youArePayer ? me.id : friendId,
+      to: youArePayer ? friendId : me.id,
+      amount: amt, currency, method, note: note || '',
+    };
+    try {
+      if (youArePayer && receiver.paypal) {
+        window.open('https://www.paypal.com/paypalme/' + receiver.paypal + '/' + amt, '_blank', 'noopener');
+      }
+      await store.recordPayment(groupId, payment);
+      goBack();
+    } catch (e) { setBusy(false); alert('Could not record the payment. Try again.'); }
+  };
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
@@ -143,15 +174,15 @@ function AmountStep({ p, f, me, amount, setAmount, currency, suggested, method, 
           <Button
             variant="accent" size="lg" fullWidth
             icon={youArePayer ? 'send' : 'check'}
-            disabled={!parseFloat(amount) || (youArePayer && !paypalHandle.trim())}
-            onClick={goBack}
+            disabled={busy || !parseFloat(amount) || (youArePayer && !paypalHandle.trim())}
+            onClick={() => record('paypal')}
           >
             {youArePayer ? `Open paypal.me/${paypalHandle || '…'}` : 'Mark as received'}
           </Button>
         ) : (
           <Button
             variant="accent" size="lg" fullWidth icon="check"
-            disabled={!parseFloat(amount)} onClick={goBack}
+            disabled={busy || !parseFloat(amount)} onClick={() => record('cash')}
           >
             Mark as paid
           </Button>
