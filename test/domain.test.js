@@ -144,3 +144,53 @@ test('toCSV: escapes commas/quotes in description', () => {
   const csv = D.toCSV({ name: 'G', currency: 'USD' }, [expense({ desc: 'Taxi, tip "big"' })], { me: { name: 'You' } }, 'me');
   assert.match(csv, /"Taxi, tip ""big"""/);
 });
+
+// ── CYCLE D: event fold + activity ──────────────────────────────────────────
+test('foldEvents: builds members + expenses + payments from the log', () => {
+  const events = [
+    { seq: 1, id: 'v1', type: 'GROUP_CREATED', actor: 'me', ts: 1, payload: { name: 'Trip', emoji: '⛩️', cover: 'grad', currency: 'JPY' } },
+    { seq: 2, id: 'v2', type: 'MEMBER_ADDED', actor: 'me', ts: 2, payload: { person_id: 'me', name: 'You', email: 'me@x.com', color: '#D97757', role: 'admin' } },
+    { seq: 3, id: 'v3', type: 'MEMBER_ADDED', actor: 'me', ts: 3, payload: { person_id: 'a', name: 'Alex', email: 'a@x.com', color: '#5E7A3F', role: 'member' } },
+    { seq: 4, id: 'v4', type: 'EXPENSE_ADDED', actor: 'me', ts: 4, payload: { id: 'e1', desc: 'Ryokan', amount: 100, currency: 'JPY', paidBy: 'me', split: 'equal', participants: ['me', 'a'], date: '2026-05-01', emoji: '🏯', category: 'Lodging' } },
+    { seq: 5, id: 'v5', type: 'PAYMENT_RECORDED', actor: 'a', ts: 5, payload: { id: 'p1', from: 'a', to: 'me', amount: 50, currency: 'JPY', method: 'cash', date: '2026-05-02' } },
+  ];
+  const g = D.foldEvents(events);
+  assert.equal(g.meta.name, 'Trip');
+  assert.equal(g.members.length, 2);
+  assert.equal(g.expenses.length, 1);
+  assert.equal(g.expenses[0].desc, 'Ryokan');
+  assert.equal(g.payments.length, 1);
+});
+
+test('foldEvents: EXPENSE_EDITED replaces, EXPENSE_DELETED tombstones', () => {
+  const events = [
+    { seq: 1, type: 'EXPENSE_ADDED', payload: { id: 'e1', desc: 'A', amount: 10, split: 'equal', participants: ['me'], currency: 'USD', paidBy: 'me' } },
+    { seq: 2, type: 'EXPENSE_EDITED', payload: { id: 'e1', desc: 'B', amount: 20, split: 'equal', participants: ['me'], currency: 'USD', paidBy: 'me' } },
+    { seq: 3, type: 'EXPENSE_DELETED', payload: { id: 'e1' } },
+  ];
+  const g = D.foldEvents(events);
+  const e = g.expenses.find(x => x.id === 'e1');
+  assert.equal(e.desc, 'B');
+  assert.equal(e.deleted, true);
+});
+
+test('foldEvents: PAYPAL_SET updates member handle', () => {
+  const events = [
+    { seq: 1, type: 'MEMBER_ADDED', payload: { person_id: 'a', name: 'Alex', color: '#000' } },
+    { seq: 2, type: 'PAYPAL_SET', payload: { person_id: 'a', paypal: 'alex88' } },
+  ];
+  const g = D.foldEvents(events);
+  assert.equal(g.members.find(m => m.person_id === 'a').paypal, 'alex88');
+});
+
+test('deriveActivity: newest first, maps event types to feed items', () => {
+  const events = [
+    { seq: 1, type: 'GROUP_CREATED', actor: 'me', ts: 1000, payload: { name: 'Trip' } },
+    { seq: 2, type: 'EXPENSE_ADDED', actor: 'a', ts: 2000, payload: { id: 'e1', desc: 'Lunch', amount: 20, currency: 'USD', split: 'equal', participants: ['me', 'a'], paidBy: 'a' } },
+  ];
+  const feed = D.deriveActivity(events, 'g1', 'me', 5000);
+  assert.equal(feed[0].type, 'expense');
+  assert.equal(feed[0].who, 'a');
+  assert.equal(feed[0].you, 'owe');
+  assert.equal(feed[1].type, 'group');
+});

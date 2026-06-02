@@ -139,5 +139,81 @@
     return rows.join('\n') + '\n';
   }
 
-  return { splitMap, shareOf, memberNets, balancesWithMe, groupSummary, friendBalances, minimizeTransactions, toCSV, _CCY: CCY };
+  const EVENT = {
+    GROUP_CREATED: 'GROUP_CREATED', GROUP_EDITED: 'GROUP_EDITED',
+    MEMBER_ADDED: 'MEMBER_ADDED', MEMBER_EDITED: 'MEMBER_EDITED',
+    EXPENSE_ADDED: 'EXPENSE_ADDED', EXPENSE_EDITED: 'EXPENSE_EDITED', EXPENSE_DELETED: 'EXPENSE_DELETED',
+    PAYMENT_RECORDED: 'PAYMENT_RECORDED', COMMENT_ADDED: 'COMMENT_ADDED', PAYPAL_SET: 'PAYPAL_SET',
+  };
+
+  // Fold an ordered event log into materialized group state.
+  function foldEvents(events) {
+    const ordered = [...events].sort((a, b) => (a.seq || 0) - (b.seq || 0));
+    const g = { meta: {}, members: [], expenses: [], payments: [], comments: [] };
+    const expIdx = {}, memIdx = {};
+    for (const ev of ordered) {
+      const p = ev.payload || {};
+      switch (ev.type) {
+        case EVENT.GROUP_CREATED:
+        case EVENT.GROUP_EDITED:
+          Object.assign(g.meta, p); break;
+        case EVENT.MEMBER_ADDED:
+          if (memIdx[p.person_id] == null) { memIdx[p.person_id] = g.members.length; g.members.push(Object.assign({}, p)); }
+          else Object.assign(g.members[memIdx[p.person_id]], p);
+          break;
+        case EVENT.MEMBER_EDITED:
+          if (memIdx[p.person_id] != null) Object.assign(g.members[memIdx[p.person_id]], p);
+          break;
+        case EVENT.PAYPAL_SET:
+          if (memIdx[p.person_id] != null) g.members[memIdx[p.person_id]].paypal = p.paypal;
+          break;
+        case EVENT.EXPENSE_ADDED:
+          expIdx[p.id] = g.expenses.length; g.expenses.push(Object.assign({}, p)); break;
+        case EVENT.EXPENSE_EDITED:
+          if (expIdx[p.id] != null) Object.assign(g.expenses[expIdx[p.id]], p); break;
+        case EVENT.EXPENSE_DELETED:
+          if (expIdx[p.id] != null) g.expenses[expIdx[p.id]].deleted = true; break;
+        case EVENT.PAYMENT_RECORDED:
+          g.payments.push(Object.assign({}, p)); break;
+        case EVENT.COMMENT_ADDED:
+          g.comments.push(Object.assign({}, p)); break;
+      }
+    }
+    return g;
+  }
+
+  function relativeTime(ts, nowMs) {
+    const diff = Math.max(0, (nowMs || 0) - ts);
+    const h = diff / 3.6e6, d = h / 24;
+    if (h < 1) return Math.max(1, Math.round(diff / 6e4)) + 'm ago';
+    if (h < 24) return Math.round(h) + 'h ago';
+    if (d < 2) return 'Yesterday';
+    return Math.round(d) + 'd ago';
+  }
+
+  // Derive the activity feed (newest first) from one group's event log.
+  function deriveActivity(events, groupId, meId, nowMs) {
+    meId = meId || 'me';
+    const out = [];
+    for (const ev of events) {
+      const p = ev.payload || {};
+      const base = { id: ev.id || ('a' + ev.seq), who: ev.actor, group: groupId, when: relativeTime(ev.ts || 0, nowMs) };
+      if (ev.type === EVENT.EXPENSE_ADDED) {
+        const youArePayer = p.paidBy === meId;
+        out.push(Object.assign(base, {
+          type: 'expense', desc: p.desc, amount: p.amount, currency: p.currency,
+          share: shareOf(p, meId), you: youArePayer ? 'lent' : 'owe',
+        }));
+      } else if (ev.type === EVENT.PAYMENT_RECORDED) {
+        out.push(Object.assign(base, { type: 'payment', desc: p.to === meId ? 'paid you' : 'recorded a payment', amount: p.amount, currency: p.currency }));
+      } else if (ev.type === EVENT.COMMENT_ADDED) {
+        out.push(Object.assign(base, { type: 'comment', desc: 'on ' + (p.expenseDesc || 'an expense'), text: p.text }));
+      } else if (ev.type === EVENT.GROUP_CREATED) {
+        out.push(Object.assign(base, { type: 'group', desc: 'created ' + (p.name || 'a group') }));
+      }
+    }
+    return out.reverse();
+  }
+
+  return { splitMap, shareOf, memberNets, balancesWithMe, groupSummary, friendBalances, minimizeTransactions, toCSV, EVENT, foldEvents, deriveActivity, relativeTime, _CCY: CCY };
 });
