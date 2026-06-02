@@ -19,6 +19,10 @@ function FriendsScreen({ store, navigate, tweaks }) {
         trailing={<IconBtn name="plus" onClick={() => navigate({ screen: 'invite' })} />}
       />
 
+      {friends.length === 0 && Object.keys(people).length <= 1 && (
+        <EmptyState emoji="👋" title="No friends yet" sub="Invite people to a group — they'll show up here with running balances." cta="Invite friends" onCta={() => navigate({ screen: 'invite' })} />
+      )}
+
       {owedToMe.length > 0 && (
         <>
           <SectionLabel>Owed to you</SectionLabel>

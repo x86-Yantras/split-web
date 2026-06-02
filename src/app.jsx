@@ -20,12 +20,10 @@ function App() {
     return window.SSAuth.onChange((u) => { window.SSResetStore(); setUser(u); });
   }, []);
 
-  // Hydrate (or seed) the store once signed in.
+  // Hydrate the store once signed in. Real accounts start empty — no auto-seed.
   React.useEffect(() => {
     if (!signedIn) return;
-    const s = window.SSGetStore();
-    s.hydrate().then(() => { if (!s.getSnapshot().groups.length) window.SSSeedFromMock(s); })
-      .catch(() => window.SSSeedFromMock(s));
+    window.SSGetStore().hydrate().catch(() => {});
   }, [signedIn]);
 
   const handleSignIn = (opts) => window.SSAuth?.signIn(opts);
@@ -90,6 +88,7 @@ function App() {
           />
         </window.TweakSection>
         <window.TweakSection label="Demo">
+          <window.TweakButton label="Load demo data" onClick={() => { window.SSSeedFromMock(window.SSGetStore()); }} />
           <window.TweakButton label="Sign out" onClick={handleSignOut} />
           <window.TweakButton label="Open invite-link landing" onClick={() => setStack([{ screen: 'join' }])} />
         </window.TweakSection>

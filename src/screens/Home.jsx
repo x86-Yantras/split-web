@@ -82,7 +82,9 @@ function HomeScreen({ store, tweaks, navigate, user }) {
       <SectionLabel action="New group" onAction={() => navigate({ screen: 'newGroup' })}>Your groups</SectionLabel>
 
       <div style={{ padding: '0 16px 8px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {groups.map(g => <GroupCard key={g.id} group={g} people={people} onClick={() => navigate({ screen: 'group', id: g.id })} />)}
+        {groups.length === 0
+          ? <EmptyState emoji="🧳" title="No groups yet" sub="Create your first group to start splitting expenses with friends." cta="New group" onCta={() => navigate({ screen: 'newGroup' })} />
+          : groups.map(g => <GroupCard key={g.id} group={g} people={people} onClick={() => navigate({ screen: 'group', id: g.id })} />)}
       </div>
 
       <SectionLabel>Quick actions</SectionLabel>

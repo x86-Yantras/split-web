@@ -9,6 +9,9 @@ function ActivityScreen({ store, navigate }) {
     <Screen>
       <Header title="Activity" sub="Across all groups" large trailing={<IconBtn name="bell" onClick={() => {}} />} />
 
+      {activity.length === 0 ? (
+        <EmptyState emoji="📭" title="Nothing yet" sub="Expenses, payments and comments across your groups will appear here." />
+      ) : (
       <div style={{ padding: '0 12px' }}>
         <div style={{ background: SS.surface, borderRadius: 18, border: `1px solid ${SS.hairline}`, overflow: 'hidden' }}>
           {activity.map((a, i) => {
@@ -78,6 +81,7 @@ function ActivityScreen({ store, navigate }) {
           })}
         </div>
       </div>
+      )}
 
       <div style={{ height: 32 }} />
     </Screen>
