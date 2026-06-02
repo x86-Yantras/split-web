@@ -110,29 +110,3 @@ window.DATA = (function () {
 
   return { me, people, groups, expenses, friends, activity };
 })();
-
-// Currency helpers + display rates (mock, FYI-only)
-window.CCY = (function () {
-  const symbols = { USD: '$', EUR: '€', GBP: '£', JPY: '¥', INR: '₹', CAD: 'C$', AUD: 'A$' };
-  // Rough mock rates relative to USD (display only, not real-time).
-  const usdRates = { USD: 1, EUR: 0.92, GBP: 0.79, JPY: 156, INR: 83.4, CAD: 1.36, AUD: 1.51 };
-
-  function format(amount, code, opts = {}) {
-    const sym = symbols[code] || code + ' ';
-    const isWhole = code === 'JPY' || code === 'INR';
-    const abs = Math.abs(amount);
-    const str = isWhole
-      ? Math.round(abs).toLocaleString()
-      : abs.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    const sign = amount < 0 ? '-' : '';
-    return sign + sym + str;
-  }
-
-  function convert(amount, from, to) {
-    if (from === to) return amount;
-    const inUsd = amount / usdRates[from];
-    return inUsd * usdRates[to];
-  }
-
-  return { symbols, format, convert, codes: Object.keys(symbols) };
-})();
