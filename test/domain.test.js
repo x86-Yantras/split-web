@@ -109,3 +109,38 @@ test('friendBalances: rolls up per (friend,currency), drops settled', () => {
   assertClose(aUsd.balance, 50, 'a USD'); assertClose(bEur.balance, -30, 'b EUR');
   assert.ok(!fb.some(x => x.balance === 0), 'no settled rows');
 });
+
+// ── CYCLE C: minimization + CSV ─────────────────────────────────────────────
+test('minimizeTransactions: 3-way settles in 2 payments', () => {
+  const txns = D.minimizeTransactions({ me: 60, a: -30, b: -30 });
+  assert.equal(txns.length, 2);
+  const total = txns.reduce((s, t) => s + t.amount, 0);
+  assertClose(total, 60, 'total moved');
+  assert.ok(txns.every(t => t.to === 'me'), 'everyone pays me');
+});
+
+test('minimizeTransactions: already settled → no payments', () => {
+  assert.deepEqual(D.minimizeTransactions({ me: 0, a: 0 }), []);
+});
+
+test('minimizeTransactions: chains debtor to multiple creditors', () => {
+  const txns = D.minimizeTransactions({ a: -50, me: 30, b: 20 });
+  assert.equal(txns.length, 2);
+  assert.ok(txns.every(t => t.from === 'a'));
+  assertClose(txns.reduce((s, t) => s + t.amount, 0), 50, 'sum');
+});
+
+test('toCSV: header + one row per expense with your share', () => {
+  const people = { me: { name: 'You' }, a: { name: 'Alex Chen' } };
+  const exps = [expense({ id: 'x1', desc: 'Lunch', amount: 100, currency: 'USD', paidBy: 'me', participants: ['me', 'a'] })];
+  const csv = D.toCSV({ name: 'Trip', currency: 'USD' }, exps, people, 'me');
+  const lines = csv.trim().split('\n');
+  assert.match(lines[0], /date,description,category,amount,currency,paid_by,split,your_share/);
+  assert.match(lines[1], /Lunch/);
+  assert.match(lines[1], /50/);
+});
+
+test('toCSV: escapes commas/quotes in description', () => {
+  const csv = D.toCSV({ name: 'G', currency: 'USD' }, [expense({ desc: 'Taxi, tip "big"' })], { me: { name: 'You' } }, 'me');
+  assert.match(csv, /"Taxi, tip ""big"""/);
+});

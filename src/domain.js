@@ -99,5 +99,45 @@
       });
   }
 
-  return { splitMap, shareOf, memberNets, balancesWithMe, groupSummary, friendBalances, _CCY: CCY };
+  // Greedy fewest-payments settlement from a net map (+ owed, - owes).
+  function minimizeTransactions(netMap) {
+    const creditors = [], debtors = [];
+    for (const [id, amt] of Object.entries(netMap)) {
+      if (amt > 0.01) creditors.push({ id, amt });
+      else if (amt < -0.01) debtors.push({ id, amt: -amt });
+    }
+    creditors.sort((x, y) => y.amt - x.amt);
+    debtors.sort((x, y) => y.amt - x.amt);
+    const txns = [];
+    let i = 0, j = 0;
+    while (i < debtors.length && j < creditors.length) {
+      const pay = Math.min(debtors[i].amt, creditors[j].amt);
+      txns.push({ from: debtors[i].id, to: creditors[j].id, amount: Math.round(pay * 100) / 100 });
+      debtors[i].amt -= pay; creditors[j].amt -= pay;
+      if (debtors[i].amt < 0.01) i++;
+      if (creditors[j].amt < 0.01) j++;
+    }
+    return txns;
+  }
+
+  function csvCell(v) {
+    const s = String(v == null ? '' : v);
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+
+  function toCSV(group, expenses, people, meId) {
+    meId = meId || 'me';
+    const header = ['date', 'description', 'category', 'amount', 'currency', 'paid_by', 'split', 'your_share'];
+    const rows = [header.join(',')];
+    for (const e of expenses) {
+      if (e.deleted) continue;
+      const payer = (people[e.paidBy] && people[e.paidBy].name) || e.paidBy;
+      const row = [e.date, e.desc, e.category || '', e.amount, e.currency, payer, e.split,
+        Math.round(shareOf(e, meId) * 100) / 100];
+      rows.push(row.map(csvCell).join(','));
+    }
+    return rows.join('\n') + '\n';
+  }
+
+  return { splitMap, shareOf, memberNets, balancesWithMe, groupSummary, friendBalances, minimizeTransactions, toCSV, _CCY: CCY };
 });
