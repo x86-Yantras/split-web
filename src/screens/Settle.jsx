@@ -97,6 +97,11 @@ function AmountStep({ p, f, me, amount, setAmount, currency, suggested, method, 
       amount: amt, currency, method, note: note || '',
     };
     try {
+      // Save a freshly typed handle back to the member record.
+      const handle = (typeof paypalHandle === 'string') ? paypalHandle.trim() : '';
+      if (groupId && handle && receiver.paypal !== handle) {
+        try { await store.setPayPalHandle(groupId, receiver.id, handle); } catch (e) {}
+      }
       if (youArePayer && receiver.paypal) {
         window.open('https://www.paypal.com/paypalme/' + receiver.paypal + '/' + amt, '_blank', 'noopener');
       }
