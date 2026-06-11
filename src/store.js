@@ -30,6 +30,13 @@
     function cacheKey(id) { return 'splitsplit.events.' + id; }
     function loadCachedEvents(id) { try { return JSON.parse(storage.getItem(cacheKey(id)) || '[]'); } catch (e) { return []; } }
     function saveCachedEvents(id) { storage.setItem(cacheKey(id), JSON.stringify(G[id].events)); }
+    // Drop an orphaned group from local state (Sheet deleted / access revoked).
+    function removeGroupLocal(id) {
+      delete G[id];
+      delete index[id];
+      saveIndex();
+      try { storage.removeItem(cacheKey(id)); } catch (e) {}
+    }
 
     // ---- derive the public snapshot from folded group state ----
     function rebuild() {
@@ -205,8 +212,17 @@
       for (const [groupId, sheetId] of Object.entries(index)) {
         G[groupId] = G[groupId] || { id: groupId, sheetId, events: loadCachedEvents(groupId), lastSeq: 0 };
         G[groupId].lastSeq = G[groupId].events.reduce((m, e) => Math.max(m, e.seq), 0);
-        try { await pullGroup(groupId); } catch (e) {}
+        try {
+          await pullGroup(groupId);
+        } catch (e) {
+          // Sheet deleted or access revoked → forget the orphaned local entry.
+          if (/\b(404|403|410)\b/.test(String(e && e.message))) { removeGroupLocal(groupId); continue; }
+        }
+        // A group with zero events is a ghost (Sheet emptied/deleted) — prune it
+        // so it doesn't render as an "undefined / 0 people / settled" card.
+        if (G[groupId] && (!G[groupId].events || G[groupId].events.length === 0)) removeGroupLocal(groupId);
       }
+      notify();
       // Pull pinned rates from the first group that has any; fall back to bundled.
       for (const g of Object.values(G)) {
         try { const r = await sheets.readRates(g.sheetId); if (r && Object.keys(r).length) { (D._CCY || (typeof window !== 'undefined' && window.CCY)).setRates(r); break; } } catch (e) {}
