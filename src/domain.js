@@ -144,6 +144,7 @@
     MEMBER_ADDED: 'MEMBER_ADDED', MEMBER_EDITED: 'MEMBER_EDITED',
     EXPENSE_ADDED: 'EXPENSE_ADDED', EXPENSE_EDITED: 'EXPENSE_EDITED', EXPENSE_DELETED: 'EXPENSE_DELETED',
     PAYMENT_RECORDED: 'PAYMENT_RECORDED', COMMENT_ADDED: 'COMMENT_ADDED', PAYPAL_SET: 'PAYPAL_SET',
+    FRIEND_SEEN: 'FRIEND_SEEN', INVITE_SENT: 'INVITE_SENT',
   };
 
   // Fold an ordered event log into materialized group state.
@@ -215,5 +216,30 @@
     return out.reverse();
   }
 
-  return { splitMap, shareOf, memberNets, balancesWithMe, groupSummary, friendBalances, minimizeTransactions, toCSV, EVENT, foldEvents, deriveActivity, relativeTime, _CCY: CCY };
+  // Fold the per-user profile event log into { friends, sentInvites }.
+  // Friends are keyed by lowercased email; the latest FRIEND_SEEN wins.
+  function foldProfile(events) {
+    const friends = {};
+    const sentInvites = [];
+    for (const ev of (events || [])) {
+      const p = ev.payload || {};
+      if (ev.type === EVENT.FRIEND_SEEN) {
+        const email = (p.email || '').toLowerCase();
+        if (!email) continue;
+        const prev = friends[email] || {};
+        friends[email] = {
+          email,
+          name: p.name || prev.name || email.split('@')[0],
+          paypal: p.paypal != null ? p.paypal : prev.paypal,
+          color: p.color != null ? p.color : prev.color,
+          ts: ev.ts || prev.ts || 0,
+        };
+      } else if (ev.type === EVENT.INVITE_SENT) {
+        sentInvites.push({ groupId: p.groupId, sheetId: p.sheetId, email: (p.email || '').toLowerCase(), token: p.token, ts: ev.ts || p.ts || 0 });
+      }
+    }
+    return { friends, sentInvites };
+  }
+
+  return { splitMap, shareOf, memberNets, balancesWithMe, groupSummary, friendBalances, minimizeTransactions, toCSV, EVENT, foldEvents, foldProfile, deriveActivity, relativeTime, _CCY: CCY };
 });

@@ -194,3 +194,38 @@ test('deriveActivity: newest first, maps event types to feed items', () => {
   assert.equal(feed[0].you, 'owe');
   assert.equal(feed[1].type, 'group');
 });
+
+test('foldProfile: upserts friends by email, latest event wins', () => {
+  const D = require('../src/domain');
+  const events = [
+    { seq: 1, type: D.EVENT.FRIEND_SEEN, ts: 100, payload: { email: 'a@x.com', name: 'a' } },
+    { seq: 2, type: D.EVENT.FRIEND_SEEN, ts: 200, payload: { email: 'A@x.com', name: 'Alex', paypal: 'alexpp' } },
+    { seq: 3, type: D.EVENT.FRIEND_SEEN, ts: 300, payload: { email: 'b@x.com', name: 'Bee' } },
+  ];
+  const { friends } = D.foldProfile(events);
+  assert.equal(Object.keys(friends).length, 2, 'A@ and a@ collapse to one');
+  assert.equal(friends['a@x.com'].name, 'Alex');
+  assert.equal(friends['a@x.com'].paypal, 'alexpp');
+  assert.equal(friends['a@x.com'].ts, 200);
+  assert.equal(friends['b@x.com'].name, 'Bee');
+});
+
+test('foldProfile: accumulates sent invites in order', () => {
+  const D = require('../src/domain');
+  const events = [
+    { seq: 1, type: D.EVENT.INVITE_SENT, ts: 10, payload: { groupId: 'g1', sheetId: 's1', email: 'a@x.com', token: 't1' } },
+    { seq: 2, type: D.EVENT.INVITE_SENT, ts: 20, payload: { groupId: 'g2', sheetId: 's2', email: 'b@x.com', token: 't2' } },
+  ];
+  const { sentInvites } = D.foldProfile(events);
+  assert.equal(sentInvites.length, 2);
+  assert.equal(sentInvites[0].email, 'a@x.com');
+  assert.equal(sentInvites[1].groupId, 'g2');
+});
+
+test('foldProfile: ignores unknown event types and empty input', () => {
+  const D = require('../src/domain');
+  assert.deepEqual(D.foldProfile([]), { friends: {}, sentInvites: [] });
+  const { friends, sentInvites } = D.foldProfile([{ seq: 1, type: 'NOPE', payload: {} }]);
+  assert.deepEqual(friends, {});
+  assert.deepEqual(sentInvites, []);
+});
