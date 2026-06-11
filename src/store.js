@@ -16,6 +16,29 @@
     const { sheets, storage, now, genId, user } = deps;
     const meId = 'me';
 
+    // Identity translation. "me" is a per-device alias for the signed-in user —
+    // it must NOT be written literally into the shared Sheet, or every member
+    // would read each other's "me" as themselves. On the wire we use a stable,
+    // email-derived id (same scheme as inviteByEmail), and we remap that id back
+    // to "me" only in *our own* local snapshot so the UI keeps using "me".
+    function myId() {
+      const e = (user && user.email || '').toLowerCase();
+      return e ? 'p_' + e.replace(/[^a-z0-9]/g, '').slice(0, 12) : meId;
+    }
+    const ID_FIELDS = ['paidBy', 'from', 'to', 'person_id'];
+    function mapPayloadIds(payload, fn) {
+      if (!payload || typeof payload !== 'object') return payload;
+      const o = Object.assign({}, payload);
+      for (const k of ID_FIELDS) if (o[k] != null) o[k] = fn(o[k]);
+      if (Array.isArray(o.participants)) o.participants = o.participants.map(fn);
+      return o;
+    }
+    const delocalizeId = (id) => (id === meId ? myId() : id); // UI "me" -> wire id
+    const localizeId = (id) => (id === myId() ? meId : id);    // my wire id -> "me"
+    function localizeEvent(e) {
+      return Object.assign({}, e, { actor: localizeId(e.actor), payload: mapPayloadIds(e.payload, localizeId) });
+    }
+
     // group state: id -> { sheetId, meta, members:[], events:[], lastSeq }
     const G = {};
     let index = deps.index || loadIndex();        // { groupId: sheetId }
@@ -56,7 +79,10 @@
       const groupsArr = Object.values(G);
       const expensesByGroup = {}, paymentsByGroup = {};
       for (const g of groupsArr) {
-        const folded = D.foldEvents(g.events);
+        // Remap our own stable id back to "me" so all downstream logic/UI (which
+        // uses the "me" sentinel) treats the current user correctly; other members
+        // keep their stable ids.
+        const folded = D.foldEvents(g.events.map(localizeEvent));
         const memberIds = folded.members.map(m => m.person_id);
         for (const m of folded.members) {
           const id = m.person_id;
@@ -85,10 +111,13 @@
     function appendLocal(groupId, type, payload, actor) {
       const g = G[groupId];
       const seq = g.events.length ? g.events[g.events.length - 1].seq + 1 : 1;
-      const ev = { seq, id: genId(), type, actor: actor || meId, ts: now(), payload };
+      // Store events in wire form (stable ids), matching what we read from the Sheet.
+      const wirePayload = mapPayloadIds(payload, delocalizeId);
+      const wireActor = delocalizeId(actor || meId);
+      const ev = { seq, id: genId(), type, actor: wireActor, ts: now(), payload: wirePayload };
       g.events.push(ev);
       saveCachedEvents(groupId);
-      queue.push({ groupId, sheetId: g.sheetId, eventId: ev.id, row: [String(seq), ev.id, type, ev.actor, String(ev.ts), JSON.stringify(payload)] });
+      queue.push({ groupId, sheetId: g.sheetId, eventId: ev.id, row: [String(seq), ev.id, type, wireActor, String(ev.ts), JSON.stringify(wirePayload)] });
       notify();
       return ev;
     }
@@ -292,16 +321,17 @@
       const out = [];
       const nowMs = now();
       for (const g of Object.values(G)) {
-        const folded = D.foldEvents(g.events);
-        const feed = D.deriveActivity(g.events, g.id, meId, nowMs);
-        for (const item of feed) out.push(Object.assign({ _ts: (g.events.find(e => (e.id || ('a' + e.seq)) === item.id) || {}).ts || 0 }, item, { groupName: folded.meta.name }));
+        const evs = g.events.map(localizeEvent);
+        const folded = D.foldEvents(evs);
+        const feed = D.deriveActivity(evs, g.id, meId, nowMs);
+        for (const item of feed) out.push(Object.assign({ _ts: (evs.find(e => (e.id || ('a' + e.seq)) === item.id) || {}).ts || 0 }, item, { groupName: folded.meta.name }));
       }
       out.sort((a, b) => b._ts - a._ts);
       return out;
     }
 
     function commentsFor(groupId, expenseId) {
-      const folded = D.foldEvents(G[groupId] ? G[groupId].events : []);
+      const folded = D.foldEvents(G[groupId] ? G[groupId].events.map(localizeEvent) : []);
       return folded.comments.filter(c => c.expense_id === expenseId);
     }
 

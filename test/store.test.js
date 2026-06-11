@@ -158,3 +158,35 @@ test('inviteByEmail: grants writer perm, adds member, returns a link', async () 
   assert.match(link, /\/join\/.+\?s=.+&t=.+/);
   assert.ok(store.getSnapshot().groups.find(x => x.id === g.id).members.some(m => m.startsWith('p_')));
 });
+
+test('multi-user identity: payer is not "me" for the other member', async () => {
+  const sheets = fakeSheets();
+  const mk = (email, name) => {
+    let t = 1000, c = 0;
+    return createStore({
+      sheets, storage: memStorage(), now: () => t++, genId: () => email[0] + (++c),
+      user: { sub: email, email, name, givenName: name },
+    });
+  };
+  // Owner creates the group, invites friend, and logs an expense they paid.
+  const owner = mk('owner@x.com', 'Owner');
+  const g = await owner.createGroup({ name: 'Trip', emoji: '⛩️', cover: 'grad', currency: 'USD' });
+  await owner.inviteByEmail(g.id, 'friend@x.com');
+  const friendId = 'p_' + 'friend@x.com'.replace(/[^a-z0-9]/g, '').slice(0, 12);
+  await owner.addExpense(g.id, { desc: 'Lunch', amount: 100, currency: 'USD', emoji: '🍱', category: 'Food', paidBy: 'me', split: 'equal', participants: ['me', friendId], date: '2026-05-01' });
+
+  // Friend joins the same backend and reads the same expense.
+  const friend = mk('friend@x.com', 'Friend');
+  const res = await friend.joinGroup(g.id, g.sheetId);
+  assert.equal(res.ok, true);
+
+  const ownerExp = owner.getSnapshot().expenses[g.id][0];
+  const friendExp = friend.getSnapshot().expenses[g.id][0];
+  assert.equal(ownerExp.paidBy, 'me', 'owner sees themselves as the payer');
+  assert.notEqual(friendExp.paidBy, 'me', 'friend must NOT see themselves as the payer');
+  // Owner is owed; friend owes. Signs must be opposite.
+  const ownerGrp = owner.getSnapshot().groups.find(x => x.id === g.id);
+  const friendGrp = friend.getSnapshot().groups.find(x => x.id === g.id);
+  assert.ok(ownerGrp.youAreOwed > 0, 'owner is owed');
+  assert.ok(friendGrp.youOwe > 0, 'friend owes');
+});
