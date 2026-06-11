@@ -290,9 +290,8 @@
       // against. The sheetId is not a secret — access is gated by the Drive ACL.
       const origin = deps.appOrigin || 'https://splitsplit.app';
       try {
-        await ensureProfile();
-        appendProfile(D.EVENT.FRIEND_SEEN, { email, name: email.split('@')[0] });
-        appendProfile(D.EVENT.INVITE_SENT, { groupId, sheetId: g.sheetId, email, token, ts: now() });
+        await rememberFriend(email);
+        appendProfile(D.EVENT.INVITE_SENT, { groupId, sheetId: g.sheetId, email, token });
         await flush();
       } catch (e) {} // best-effort: never block the invite on profile bookkeeping
       return { token, link: origin + '/join/' + groupId + '?s=' + g.sheetId + '&t=' + token };
@@ -385,7 +384,15 @@
       if (driveSynced && JSON.stringify(index) !== indexBefore) {
         try { await sheets.writeIndex(driveFileId, index); } catch (e) {}
       }
-      try { await ensureProfile(); } catch (e) {} // best-effort: friends/autocomplete
+      try {
+        await ensureProfile();
+        for (const g of Object.values(G)) {
+          if (g.id === PROFILE_KEY) continue;
+          const folded = D.foldEvents(g.events.map(localizeEvent));
+          for (const m of folded.members) await rememberFriend(m.email, m.name);
+        }
+        await flush();
+      } catch (e) {} // best-effort: friends/autocomplete
       notify();
       // Pull pinned rates from the first group that has any; fall back to bundled.
       for (const g of Object.values(G)) {

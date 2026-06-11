@@ -188,6 +188,27 @@ test('inviteByEmail: records the invitee as a contact and logs the sent invite',
   assert.equal(snap.sentInvites[0].groupId, g.id);
 });
 
+test('hydrate: co-members with an email become contacts', async () => {
+  const sheets = fakeSheets();
+  // store A creates a group and adds a member that has an email
+  const a = newStore(sheets);
+  const g = await a.createGroup({ name: 'Trip', emoji: '⛩️', cover: 'grad', currency: 'USD' });
+  await a.addMember(g.id, { person_id: 'p_zoe', name: 'Zoe', email: 'zoe@x.com', color: '#000' });
+
+  // a fresh store for the same user hydrates from the shared backend
+  let t = 9000, c = 500;
+  const b = createStore({
+    sheets, storage: memStorage(),
+    now: () => t++, genId: () => 'k' + (++c),
+    user: { sub: 'u1', email: 'me@x.com', name: 'Sam', givenName: 'Sam' },
+    index: { [g.id]: g.sheetId },
+  });
+  await b.hydrate();
+  const snap = b.getSnapshot();
+  assert.ok(snap.contacts.some(x => x.email === 'zoe@x.com'), 'co-member Zoe is a contact');
+  assert.ok(!snap.contacts.some(x => x.email === 'me@x.com'), 'self is not a contact');
+});
+
 test('multi-user identity: payer is not "me" for the other member', async () => {
   const sheets = fakeSheets();
   const mk = (email, name) => {
