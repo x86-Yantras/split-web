@@ -79,7 +79,7 @@
     // Record an email as a contact if not already known (and not ourselves).
     async function rememberFriend(email, name) {
       email = (email || '').toLowerCase();
-      if (!email || email === (user && user.email || '').toLowerCase()) return;
+      if (!email || email === ((user && user.email) || '').toLowerCase()) return;
       await ensureProfile();
       if (profileState().friends[email]) return;
       appendProfile(D.EVENT.FRIEND_SEEN, { email, name: name || email.split('@')[0] });
@@ -398,6 +398,7 @@
       notify();
       // Pull pinned rates from the first group that has any; fall back to bundled.
       for (const g of Object.values(G)) {
+        if (g.id === PROFILE_KEY) continue; // profile Sheet has no rates tab
         try { const r = await sheets.readRates(g.sheetId); if (r && Object.keys(r).length) { (D._CCY || (typeof window !== 'undefined' && window.CCY)).setRates(r); break; } } catch (e) {}
       }
       notify();
