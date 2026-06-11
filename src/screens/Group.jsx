@@ -6,8 +6,17 @@ function GroupScreen({ store, groupId, navigate, goBack }) {
   const expenses = (snap.expenses[groupId] || []).filter(e => !e.deleted);
   const people = snap.people;
   const [tab, setTab] = React.useState('expenses');
+  const [menuOpen, setMenuOpen] = React.useState(false);
 
   if (!group) return null;
+
+  const removeGroup = async () => {
+    setMenuOpen(false);
+    const ok = window.confirm('Remove "' + (group.name || 'this group') + '" from your list?\n\nThis only removes it from SplitSplit on your devices — it does not delete the shared Google Sheet or affect other members.');
+    if (!ok) return;
+    try { await store.forgetGroup(groupId); } catch (e) {}
+    goBack();
+  };
 
   const exportCSV = () => {
     const csv = window.SSDomain.toCSV(group, expenses, people, 'me');
@@ -28,7 +37,31 @@ function GroupScreen({ store, groupId, navigate, goBack }) {
       <Header
         leading={<IconBtn name="chevL" onClick={goBack} />}
         title={group.name}
-        trailing={<IconBtn name="more" onClick={exportCSV} />}
+        trailing={
+          <div style={{ position: 'relative' }}>
+            <IconBtn name="more" onClick={() => setMenuOpen(o => !o)} />
+            {menuOpen && (
+              <React.Fragment>
+                <div onClick={() => setMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
+                <div style={{
+                  position: 'absolute', top: 40, right: 0, zIndex: 41, minWidth: 184,
+                  background: SS.surface, border: `1px solid ${SS.hairline}`, borderRadius: 14,
+                  boxShadow: '0 10px 30px rgba(31,27,22,0.18)', overflow: 'hidden',
+                }}>
+                  <button onClick={() => { setMenuOpen(false); exportCSV(); }} style={{
+                    display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none',
+                    padding: '13px 16px', fontFamily: 'Geist, system-ui', fontSize: 14.5, color: SS.ink, cursor: 'pointer',
+                  }}>Export CSV</button>
+                  <HR inset={0} />
+                  <button onClick={removeGroup} style={{
+                    display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none',
+                    padding: '13px 16px', fontFamily: 'Geist, system-ui', fontSize: 14.5, color: SS.negative, cursor: 'pointer',
+                  }}>Remove group</button>
+                </div>
+              </React.Fragment>
+            )}
+          </div>
+        }
       />
 
       {/* Cover hero */}

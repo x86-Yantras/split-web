@@ -38,6 +38,15 @@
       try { storage.removeItem(cacheKey(id)); } catch (e) {}
     }
 
+    // User-initiated: remove a group from *my* list. Unlinks locally and pushes
+    // the cleaned index back to Drive so it stays gone across my devices. Does
+    // NOT delete the shared Sheet — other members keep their data.
+    async function forgetGroup(groupId) {
+      removeGroupLocal(groupId);
+      notify();
+      try { const idx = await sheets.readIndex(); await sheets.writeIndex(idx.fileId, index); } catch (e) {}
+    }
+
     // ---- derive the public snapshot from folded group state ----
     function rebuild() {
       const groups = [], people = {}, expenses = {}, payments = {};
@@ -270,7 +279,7 @@
 
     return {
       getSnapshot, subscribe, hydrate, flush, pullGroup, joinGroup,
-      createGroup, addMember, addExpense, editExpense, deleteExpense, recordPayment, addComment, setPayPalHandle, inviteByEmail,
+      createGroup, forgetGroup, addMember, addExpense, editExpense, deleteExpense, recordPayment, addComment, setPayPalHandle, inviteByEmail,
       allActivity, commentsFor,
       _injectMockGroup,
       get index() { return index; },
