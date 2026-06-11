@@ -8,6 +8,7 @@
     root.SSSheets = mod.createSheetsClient({
       fetchFn: (u, o) => window.fetch(u, o),
       getToken: () => window.SSAuth.getAccessToken(),
+      invalidateToken: () => window.SSAuth.clearToken && window.SSAuth.clearToken(),
       appOrigin: window.location.origin,
     });
   }
@@ -16,15 +17,24 @@
   const SHEETS = 'https://sheets.googleapis.com/v4/spreadsheets';
   const DRIVE = 'https://www.googleapis.com/drive/v3/files';
 
-  function createSheetsClient({ fetchFn, getToken, appOrigin }) {
+  function createSheetsClient({ fetchFn, getToken, invalidateToken, appOrigin }) {
     let token = null;
 
     async function call(url, opts, _retried) {
       if (!token) token = await getToken();
       const headers = Object.assign({ Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }, opts.headers || {});
       const res = await fetchFn(url, Object.assign({}, opts, { headers }));
-      if (res.status === 401 && !_retried) { token = await getToken(); return call(url, opts, true); }
-      if (!res.ok) throw new Error('Google API ' + res.status + ' for ' + url);
+      if (res.status === 401 && !_retried) {
+        token = null;
+        if (invalidateToken) { try { invalidateToken(); } catch (e) {} }
+        token = await getToken();
+        return call(url, opts, true);
+      }
+      if (!res.ok) {
+        let body = '';
+        try { body = (await res.text()).slice(0, 300); } catch (e) {}
+        throw new Error('Google API ' + res.status + ' for ' + url + (body ? ' — ' + body : ''));
+      }
       return res.json();
     }
 

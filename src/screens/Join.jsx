@@ -8,6 +8,7 @@ function JoinScreen({ store, joinLink, onSignIn, goBack, onEntered }) {
 
   const [stage, setStage] = React.useState('landing'); // landing | signing | verifying | joined | wrong | error
   const [errEmail, setErrEmail] = React.useState(null);
+  const [errMsg, setErrMsg] = React.useState(null);
 
   // Group meta is only known after a successful join (we read the Sheet then).
   const known = store.getSnapshot().groups.find(g => g.id === groupId) || null;
@@ -22,7 +23,11 @@ function JoinScreen({ store, joinLink, onSignIn, goBack, onEntered }) {
       const res = await s.joinGroup(groupId, sheetId);
       if (res && res.ok) setStage('joined');
       else { setErrEmail(res && res.email); setStage('wrong'); }
-    } catch (e) { setStage('error'); }
+    } catch (e) {
+      console.error('[join] verify failed:', e);
+      setErrMsg(String((e && e.message) || e));
+      setStage('error');
+    }
   };
 
   const handleSignIn = () => {
@@ -42,7 +47,7 @@ function JoinScreen({ store, joinLink, onSignIn, goBack, onEntered }) {
         {stage === 'verifying' && <JoinStatus label="Verifying access" sub="Checking the group's invite list…" />}
         {stage === 'joined' && <JoinDone groupId={groupId} onEnter={() => onEntered && onEntered(groupId)} />}
         {stage === 'wrong' && <JoinWrong email={errEmail} onRetry={() => { window.SSAuth.signOut(); setStage('landing'); }} />}
-        {stage === 'error' && <JoinError onRetry={() => setStage('landing')} onClose={goBack} />}
+        {stage === 'error' && <JoinError detail={errMsg} onRetry={() => setStage('landing')} onClose={goBack} />}
       </div>
       <div id="__google_anchor_join" style={{ position: 'absolute', opacity: 0, pointerEvents: 'none' }} />
     </Screen>
@@ -178,7 +183,7 @@ function JoinWrong({ email, onRetry }) {
   );
 }
 
-function JoinError({ onRetry, onClose }) {
+function JoinError({ detail, onRetry, onClose }) {
   return (
     <div style={{ padding: '48px 0 0', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
       <div style={{ width: 64, height: 64, borderRadius: 999, background: SS.surfaceAlt, border: `1px solid ${SS.hairline}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30 }}>⚠️</div>
@@ -186,6 +191,11 @@ function JoinError({ onRetry, onClose }) {
       <div style={{ fontFamily: 'Geist, system-ui', fontSize: 13.5, color: SS.muted, maxWidth: 280, lineHeight: 1.5 }}>
         The link may be incomplete, or the group's Sheet isn't reachable. Ask the person who invited you to resend the link.
       </div>
+      {detail && (
+        <div style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 11.5, color: SS.muted, maxWidth: 300, lineHeight: 1.45, wordBreak: 'break-word', background: SS.surfaceAlt, border: `1px solid ${SS.hairline}`, borderRadius: 10, padding: '8px 10px' }}>
+          {detail}
+        </div>
+      )}
       <div style={{ height: 16 }} />
       <div style={{ display: 'flex', gap: 10, width: '100%' }}>
         <Button variant="ghost" fullWidth onClick={onClose}>Close</Button>

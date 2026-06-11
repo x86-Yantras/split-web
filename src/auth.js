@@ -109,17 +109,42 @@
     if (window.google && window.google.accounts) {
       window.google.accounts.id.disableAutoSelect();
     }
+    clearToken();
     persistUser(null);
   }
 
+  // Access-token cache. GIS access tokens last ~1h but live only in memory, so
+  // without this every page reload re-runs the consent/account popup. Persist
+  // to sessionStorage (cleared when the tab closes) with a 60s safety buffer.
+  const TOKEN_KEY = "splitsplit.token.v1";
+  function readCachedToken() {
+    try {
+      const raw = sessionStorage.getItem(TOKEN_KEY);
+      if (!raw) return null;
+      const t = JSON.parse(raw);
+      if (t && t.token && t.expiresAt && t.expiresAt - 60000 > Date.now()) return t.token;
+    } catch (e) {}
+    return null;
+  }
+  function clearToken() {
+    try { sessionStorage.removeItem(TOKEN_KEY); } catch (e) {}
+  }
+
   // Request an OAuth access token for Drive/Sheets. Promise-based.
+  // Returns the cached token when still valid; only prompts when missing/expired.
   function getAccessToken() {
     init();
+    const cached = readCachedToken();
+    if (cached) return Promise.resolve(cached);
     return new Promise((resolve, reject) => {
       if (!tokenClient) return reject(new Error("token client not ready"));
       tokenClient.callback = (resp) => {
-        if (resp.error) reject(resp);
-        else resolve(resp.access_token);
+        if (resp.error) return reject(resp);
+        try {
+          const ttl = (Number(resp.expires_in) || 3600) * 1000;
+          sessionStorage.setItem(TOKEN_KEY, JSON.stringify({ token: resp.access_token, expiresAt: Date.now() + ttl }));
+        } catch (e) {}
+        resolve(resp.access_token);
       };
       // 'consent' on first call, '' subsequently if cached.
       tokenClient.requestAccessToken({ prompt: getUser() ? "" : "consent" });
@@ -140,6 +165,7 @@
     getUser,
     onChange,
     getAccessToken,
+    clearToken,
     CLIENT_ID,
   };
 
