@@ -1,7 +1,9 @@
 // Invite flow — enter Gmail → add as Sheets editor (silently) → share deep link.
 
 function InviteScreen({ store, groupId, goBack, navigate }) {
-  const groups = store.getSnapshot().groups;
+  const snap = store.getSnapshot();
+  const groups = snap.groups;
+  const contacts = (snap.contacts || []).filter(c => c.email);
   const [group, setGroup] = React.useState(groupId ? groups.find(g => g.id === groupId) : groups[0]);
   const [email, setEmail] = React.useState('');
   const [stage, setStage] = React.useState('email'); // email | provisioning | ready
@@ -69,7 +71,7 @@ function InviteScreen({ store, groupId, goBack, navigate }) {
         </div>
 
         {stage === 'email' && (
-          <EmailStage email={email} setEmail={setEmail} group={group} valid={valid} onAdd={handleAdd} />
+          <EmailStage email={email} setEmail={setEmail} group={group} valid={valid} onAdd={handleAdd} contacts={contacts} />
         )}
         {stage === 'provisioning' && (
           <ProvisioningStage email={email} />
@@ -82,7 +84,7 @@ function InviteScreen({ store, groupId, goBack, navigate }) {
   );
 }
 
-function EmailStage({ email, setEmail, group, valid, onAdd }) {
+function EmailStage({ email, setEmail, group, valid, onAdd, contacts = [] }) {
   return (
     <>
       <SectionLabel>Their email</SectionLabel>
@@ -95,12 +97,18 @@ function EmailStage({ email, setEmail, group, valid, onAdd }) {
           type="email" autoComplete="off" autoCapitalize="none"
           placeholder="friend@gmail.com" value={email}
           onChange={e => setEmail(e.target.value)}
+          list="ss-contacts"
           style={{
             flex: 1, border: 'none', outline: 'none', background: 'transparent',
             fontFamily: 'Geist, system-ui', fontSize: 15, color: SS.ink,
             padding: '14px 0',
           }}
         />
+        <datalist id="ss-contacts">
+          {contacts.map(c => (
+            <option key={c.email} value={c.email}>{c.name ? c.name + ' — ' + c.email : c.email}</option>
+          ))}
+        </datalist>
       </div>
       <div style={{
         fontFamily: 'Geist, system-ui', fontSize: 12, color: SS.muted,
