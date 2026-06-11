@@ -205,22 +205,38 @@
     }
 
     async function hydrate() {
-      // resolve index: injected > drive > cache
-      if (!Object.keys(index).length) {
-        try { const idx = await sheets.readIndex(); index = idx.map || {}; saveIndex(); } catch (e) { index = loadIndex(); }
+      // Drive index.json is the source of truth. Read it every load and merge any
+      // local-only (offline-created) groups on top, so deletions made on another
+      // device propagate here automatically — no manual cache clearing.
+      let driveFileId = null, driveSynced = false;
+      if (!deps.index) {
+        try {
+          const idx = await sheets.readIndex();
+          driveFileId = idx.fileId; driveSynced = true;
+          index = Object.assign({}, idx.map || {}, index); // local-only entries survive
+          saveIndex();
+        } catch (e) { index = loadIndex(); } // offline / API off → fall back to cache
       }
+      const indexBefore = JSON.stringify(index);
       for (const [groupId, sheetId] of Object.entries(index)) {
         G[groupId] = G[groupId] || { id: groupId, sheetId, events: loadCachedEvents(groupId), lastSeq: 0 };
         G[groupId].lastSeq = G[groupId].events.reduce((m, e) => Math.max(m, e.seq), 0);
         try {
           await pullGroup(groupId);
+          // Pull succeeded but the Sheet has no events → ghost (emptied/deleted).
+          // Prune so it doesn't render as an "undefined / 0 people / settled" card.
+          if (!G[groupId].events || G[groupId].events.length === 0) { removeGroupLocal(groupId); continue; }
         } catch (e) {
-          // Sheet deleted or access revoked → forget the orphaned local entry.
-          if (/\b(404|403|410)\b/.test(String(e && e.message))) { removeGroupLocal(groupId); continue; }
+          // Sheet is definitively gone (404/410) → forget the orphaned local entry.
+          // 403/network are deliberately NOT pruned: they can be transient (API
+          // disabled, rate limit) and would otherwise wipe still-valid groups.
+          if (/\b(404|410)\b/.test(String(e && e.message))) { removeGroupLocal(groupId); continue; }
         }
-        // A group with zero events is a ghost (Sheet emptied/deleted) — prune it
-        // so it doesn't render as an "undefined / 0 people / settled" card.
-        if (G[groupId] && (!G[groupId].events || G[groupId].events.length === 0)) removeGroupLocal(groupId);
+      }
+      // If pruning changed the map, push the cleaned index back to Drive so every
+      // device converges on the same group list.
+      if (driveSynced && JSON.stringify(index) !== indexBefore) {
+        try { await sheets.writeIndex(driveFileId, index); } catch (e) {}
       }
       notify();
       // Pull pinned rates from the first group that has any; fall back to bundled.
