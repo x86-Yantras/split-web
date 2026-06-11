@@ -159,6 +159,23 @@ test('inviteByEmail: grants writer perm, adds member, returns a link', async () 
   assert.ok(store.getSnapshot().groups.find(x => x.id === g.id).members.some(m => m.startsWith('p_')));
 });
 
+test('hydrate: creates a profile Sheet and does not treat it as a group', async () => {
+  const sheets = fakeSheets();
+  const store = newStore(sheets);
+  await store.createGroup({ name: 'Trip', emoji: '⛩️', cover: 'grad', currency: 'USD' });
+  await store.hydrate();
+  const snap = store.getSnapshot();
+  // exactly one real group; the profile sheet is NOT listed as a group
+  assert.equal(snap.groups.length, 1);
+  assert.ok(!snap.groups.some(g => g.id === '__profile__'), 'profile is not a group');
+  // the store exposes contacts + sentInvites containers (contacts = profile
+  // friends, kept separate from the existing balance-derived snap.friends)
+  assert.ok(Array.isArray(snap.contacts));
+  assert.ok(Array.isArray(snap.sentInvites));
+  // the index gained a reserved profile entry
+  assert.ok(store.index['__profile__'], 'profile sheetId recorded in index');
+});
+
 test('multi-user identity: payer is not "me" for the other member', async () => {
   const sheets = fakeSheets();
   const mk = (email, name) => {

@@ -39,6 +39,37 @@
       return Object.assign({}, e, { actor: localizeId(e.actor), payload: mapPayloadIds(e.payload, localizeId) });
     }
 
+    // The per-user profile Sheet is tracked in the same appData index under a
+    // reserved key and held as a pseudo-group so it can reuse appendLocal/flush/
+    // pullGroup. It is NEVER a real group (excluded from rebuild/hydrate/activity).
+    const PROFILE_KEY = '__profile__';
+
+    function profileState() {
+      const g = G[PROFILE_KEY];
+      return g ? D.foldProfile(g.events) : { friends: {}, sentInvites: [] };
+    }
+
+    // Idempotent: ensure a profile Sheet exists, is indexed, and is loaded into G.
+    async function ensureProfile() {
+      if (G[PROFILE_KEY]) return G[PROFILE_KEY];
+      let sheetId = index[PROFILE_KEY];
+      if (sheetId && sheets.fileExists) {
+        let ok = null;
+        try { ok = await sheets.fileExists(sheetId); } catch (e) {}
+        if (ok === false) sheetId = null; // was deleted → recreate
+      }
+      if (!sheetId) {
+        sheetId = await sheets.createSpreadsheet('SplitSplit · Profile');
+        await sheets.initTabs(sheetId, { kind: 'profile', schema_version: '1' }, []);
+        index[PROFILE_KEY] = sheetId; saveIndex();
+        try { const idx = await sheets.readIndex(); index = Object.assign(idx.map || {}, index); await sheets.writeIndex(idx.fileId, index); } catch (e) {}
+      }
+      G[PROFILE_KEY] = { id: PROFILE_KEY, sheetId, events: loadCachedEvents(PROFILE_KEY), lastSeq: 0 };
+      G[PROFILE_KEY].lastSeq = G[PROFILE_KEY].events.reduce((m, e) => Math.max(m, e.seq), 0);
+      try { await pullGroup(PROFILE_KEY); } catch (e) {}
+      return G[PROFILE_KEY];
+    }
+
     // group state: id -> { sheetId, meta, members:[], events:[], lastSeq }
     const G = {};
     let index = deps.index || loadIndex();        // { groupId: sheetId }
@@ -90,7 +121,7 @@
       const groups = [], people = {}, expenses = {}, payments = {};
       people[meId] = { id: meId, name: (user && user.name) || 'You', email: user && user.email,
         initials: initialsFor((user && user.givenName) || 'You'), color: PALETTE[0], paypal: undefined };
-      const groupsArr = Object.values(G);
+      const groupsArr = Object.values(G).filter(g => g.id !== PROFILE_KEY);
       const expensesByGroup = {}, paymentsByGroup = {};
       for (const g of groupsArr) {
         // Remap our own stable id back to "me" so all downstream logic/UI (which
@@ -116,7 +147,10 @@
           youOwe: summary.youOwe, youAreOwed: summary.youAreOwed });
       }
       const friends = D.friendBalances(groups, expensesByGroup, paymentsByGroup, meId);
-      snapshot = { ready: true, hydrating, me: people[meId], groups, people, expenses, payments, friends };
+      const prof = profileState();
+      const contacts = Object.values(prof.friends).sort((a, b) => (b.ts || 0) - (a.ts || 0));
+      snapshot = { ready: true, hydrating, me: people[meId], groups, people, expenses, payments, friends,
+        contacts, sentInvites: prof.sentInvites };
     }
 
     function notify() { rebuild(); for (const cb of subs) cb(); }
@@ -297,6 +331,7 @@
       }
       const indexBefore = JSON.stringify(index);
       for (const [groupId, sheetId] of Object.entries(index)) {
+        if (groupId === PROFILE_KEY) continue;
         // Deterministic existence check: drops Sheets the user trashed or deleted
         // in Drive (Sheets API alone reports these inconsistently). null = unknown
         // (transient) → keep the group and try again next load.
@@ -324,6 +359,7 @@
       if (driveSynced && JSON.stringify(index) !== indexBefore) {
         try { await sheets.writeIndex(driveFileId, index); } catch (e) {}
       }
+      try { await ensureProfile(); } catch (e) {} // best-effort: friends/autocomplete
       notify();
       // Pull pinned rates from the first group that has any; fall back to bundled.
       for (const g of Object.values(G)) {
@@ -337,6 +373,7 @@
       const out = [];
       const nowMs = now();
       for (const g of Object.values(G)) {
+        if (g.id === PROFILE_KEY) continue;
         const evs = g.events.map(localizeEvent);
         const folded = D.foldEvents(evs);
         const feed = D.deriveActivity(evs, g.id, meId, nowMs);
