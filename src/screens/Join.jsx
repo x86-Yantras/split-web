@@ -21,8 +21,11 @@ function JoinScreen({ store, joinLink, onSignIn, goBack, onEntered }) {
       // signed-in user's email for the ACL check.
       const s = window.SSGetStore ? window.SSGetStore() : store;
       const res = await s.joinGroup(groupId, sheetId);
-      if (res && res.ok) setStage('joined');
-      else { setErrEmail(res && res.email); setStage('wrong'); }
+      if (res && res.ok) { setStage('joined'); }
+      else if (res && res.reason === 'sheet-gone') {
+        setErrMsg("This group no longer exists — the person who invited you deleted it. Ask them for a new invite.");
+        setStage('error');
+      } else { setErrEmail(res && res.email); setStage('wrong'); }
     } catch (e) {
       console.error('[join] verify failed:', e);
       setErrMsg(String((e && e.message) || e));

@@ -167,7 +167,17 @@
     async function inviteByEmail(groupId, email) {
       const g = G[groupId];
       email = email.toLowerCase();
-      await sheets.permissionsCreate(g.sheetId, email);
+      try {
+        await sheets.permissionsCreate(g.sheetId, email);
+      } catch (e) {
+        if (/\b(404|410)\b/.test(String(e && e.message))) {
+          removeGroupLocal(groupId); notify();
+          const err = new Error("This group's Google Sheet no longer exists, so it's been removed from your list.");
+          err.code = 'sheet-gone';
+          throw err;
+        }
+        throw e;
+      }
       const personId = 'p_' + email.replace(/[^a-z0-9]/g, '').slice(0, 12);
       appendLocal(groupId, D.EVENT.MEMBER_ADDED, {
         person_id: personId, email: email.toLowerCase(),
@@ -184,7 +194,14 @@
 
     async function joinGroup(groupId, sheetId) {
       const email = (user && user.email || '').toLowerCase();
-      const acl = await sheets.permissionsList(sheetId);
+      let acl;
+      try {
+        acl = await sheets.permissionsList(sheetId);
+      } catch (e) {
+        // Sheet was deleted by the inviter, or the link's sheetId is wrong.
+        if (/\b(404|410)\b/.test(String(e && e.message))) return { ok: false, email, reason: 'sheet-gone' };
+        throw e;
+      }
       if (!acl.includes(email)) return { ok: false, email, reason: 'not-on-acl' };
       G[groupId] = G[groupId] || { id: groupId, sheetId, events: [], lastSeq: 0 };
       index[groupId] = sheetId; saveIndex();

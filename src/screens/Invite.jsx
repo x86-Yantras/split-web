@@ -34,6 +34,11 @@ function InviteScreen({ store, groupId, goBack, navigate }) {
       setStage('ready');
     } catch (e) {
       setStage('email');
+      if (e && e.code === 'sheet-gone') {
+        alert(e.message);
+        goBack(); // the group was pruned — bail out of its (now dead) invite screen
+        return;
+      }
       alert('Could not add them. Make sure the group has a real Sheet and you are online.');
     }
   };
