@@ -135,9 +135,10 @@ test('joinGroup: email on ACL hydrates the group and returns ok', async () => {
   assert.equal(b.getSnapshot().groups.find(x => x.id === g.id).name, 'Trip');
 });
 
-test('joinGroup: email NOT on ACL returns ok:false', async () => {
+test('joinGroup: no Sheet access (403) returns ok:false / not-on-acl', async () => {
   const sheets = fakeSheets();
-  sheets.permissionsList = async () => ['someone-else@x.com'];
+  // Not on the ACL → the Sheets read is denied (Drive ACL is no longer consulted).
+  sheets.readMeta = async () => { throw new Error('Google API 403 for sheets read'); };
   const store = newStore(sheets);
   const res = await store.joinGroup('g1', 'S1');
   assert.equal(res.ok, false);

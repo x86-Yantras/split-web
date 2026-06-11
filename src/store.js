@@ -194,15 +194,19 @@
 
     async function joinGroup(groupId, sheetId) {
       const email = (user && user.email || '').toLowerCase();
-      let acl;
+      // Verify access by READING the Sheet (Sheets API, account-wide spreadsheets
+      // scope) — not Drive permissions.list. The drive.file scope can't see a
+      // Sheet this app didn't create, so Drive 404s even when the inviter granted
+      // us writer. A successful read => we're on the ACL; 403 => not granted;
+      // 404/410 => the Sheet was deleted.
       try {
-        acl = await sheets.permissionsList(sheetId);
+        await sheets.readMeta(sheetId);
       } catch (e) {
-        // Sheet was deleted by the inviter, or the link's sheetId is wrong.
-        if (/\b(404|410)\b/.test(String(e && e.message))) return { ok: false, email, reason: 'sheet-gone' };
+        const m = String(e && e.message);
+        if (/\b403\b/.test(m)) return { ok: false, email, reason: 'not-on-acl' };
+        if (/\b(404|410)\b/.test(m)) return { ok: false, email, reason: 'sheet-gone' };
         throw e;
       }
-      if (!acl.includes(email)) return { ok: false, email, reason: 'not-on-acl' };
       G[groupId] = G[groupId] || { id: groupId, sheetId, events: [], lastSeq: 0 };
       index[groupId] = sheetId; saveIndex();
       await pullGroup(groupId);

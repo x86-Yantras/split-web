@@ -108,15 +108,18 @@
       return (j.permissions || []).map(p => (p.emailAddress || '').toLowerCase()).filter(Boolean);
     }
 
-    // Deterministic "does this Sheet still exist?" — Drive files.get reports
-    // trashed files too (Sheets API does not, reliably). Returns:
-    //   true  → file exists and is not trashed
-    //   false → file is gone (404) or trashed
-    //   null  → couldn't tell (transient error) — caller should NOT prune
+    // "Does this Sheet still exist and can we read it?" Uses the Sheets API, NOT
+    // Drive: the drive.file scope only sees files this app created, so Drive
+    // files.get 404s on Sheets we merely joined (shared by an inviter) and would
+    // falsely prune them. The spreadsheets scope is account-wide and works for
+    // both created and shared Sheets. Returns:
+    //   true  → readable (exists, we have access)
+    //   false → gone (404/410)
+    //   null  → couldn't tell (403/transient) — caller should NOT prune
     async function fileExists(sheetId) {
       try {
-        const j = await call(DRIVE + '/' + sheetId + '?fields=id,trashed', { method: 'GET' });
-        return !!(j && j.id) && !j.trashed;
+        await call(SHEETS + '/' + sheetId + '?fields=spreadsheetId', { method: 'GET' });
+        return true;
       } catch (e) {
         if (/\b(404|410)\b/.test(String(e && e.message))) return false;
         return null;
