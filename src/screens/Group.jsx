@@ -7,6 +7,21 @@ function GroupScreen({ store, groupId, navigate, goBack }) {
   const people = snap.people;
   const [tab, setTab] = React.useState('expenses');
   const [menuOpen, setMenuOpen] = React.useState(false);
+  const [removing, setRemoving] = React.useState(false);
+
+  // Removal runs several Drive/Sheets calls; once it prunes the group the snapshot
+  // drops it, so show an overlay until we navigate back (avoids a blank screen).
+  if (removing) {
+    return (
+      <Screen scroll={false} style={{ display: 'flex', flexDirection: 'column' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14 }}>
+          <div style={{ width: 48, height: 48, borderRadius: 999, border: `3px solid ${SS.hairline}`, borderTopColor: SS.accent, animation: 'ssgrpspin 0.85s linear infinite' }} />
+          <div style={{ fontFamily: 'Geist, system-ui', fontSize: 14, fontWeight: 500, color: SS.muted }}>{removing === 'owner' ? 'Deleting group…' : 'Removing group…'}</div>
+          <style>{`@keyframes ssgrpspin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+      </Screen>
+    );
+  }
 
   if (!group) return null;
 
@@ -16,6 +31,7 @@ function GroupScreen({ store, groupId, navigate, goBack }) {
       ? 'Delete "' + (group.name || 'this group') + '" for everyone?\n\nYou own this group, so this permanently deletes the shared Google Sheet — all members lose access and the data is gone.'
       : 'Remove "' + (group.name || 'this group') + '" from your list?\n\nThis only removes it from SplitSplit on your devices — the shared Sheet and other members are unaffected.';
     if (!window.confirm(msg)) return;
+    setRemoving(group.amOwner ? 'owner' : 'member');
     try { await store.forgetGroup(groupId); } catch (e) {}
     goBack();
   };
