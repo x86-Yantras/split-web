@@ -1,13 +1,14 @@
 // Google Sign-In wiring — Identity Services + token client for Drive.
 
 (function () {
-  const CLIENT_ID = '310293753844-3dr3e4jsmc556k1hnbulvup7mhr17eqj.apps.googleusercontent.com';
-  const STORAGE_KEY = 'splitsplit.user.v1';
+  const CLIENT_ID =
+    "987069794128-abmfv8o5c1mvgbgdjh98j53gn7j9jbmo.apps.googleusercontent.com";
+  const STORAGE_KEY = "splitsplit.user.v1";
   // Scopes we'll need once Sheets/Drive operations are wired.
   const DRIVE_SCOPES = [
-    'https://www.googleapis.com/auth/drive.file',
-    'https://www.googleapis.com/auth/spreadsheets',
-  ].join(' ');
+    "https://www.googleapis.com/auth/drive.file",
+    "https://www.googleapis.com/auth/spreadsheets",
+  ].join(" ");
 
   let initialized = false;
   let onChangeCallbacks = [];
@@ -15,10 +16,10 @@
 
   function decodeJwt(token) {
     try {
-      const payload = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+      const payload = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
       return JSON.parse(decodeURIComponent(escape(atob(payload))));
     } catch (e) {
-      console.error('Bad credential JWT:', e);
+      console.error("Bad credential JWT:", e);
       return null;
     }
   }
@@ -26,14 +27,16 @@
   function persistUser(profile) {
     if (profile) localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
     else localStorage.removeItem(STORAGE_KEY);
-    onChangeCallbacks.forEach(cb => cb(profile));
+    onChangeCallbacks.forEach((cb) => cb(profile));
   }
 
   function getUser() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       return raw ? JSON.parse(raw) : null;
-    } catch (e) { return null; }
+    } catch (e) {
+      return null;
+    }
   }
 
   function init() {
@@ -63,7 +66,10 @@
       sub: data.sub,
       email: data.email,
       name: data.name || data.email,
-      givenName: data.given_name || (data.name || '').split(' ')[0] || data.email.split('@')[0],
+      givenName:
+        data.given_name ||
+        (data.name || "").split(" ")[0] ||
+        data.email.split("@")[0],
       picture: data.picture || null,
       idToken: response.credential,
       signedInAt: Date.now(),
@@ -76,7 +82,7 @@
   function signIn(opts = {}) {
     init();
     if (!window.google) {
-      alert('Google Sign-In didn\'t load. Check your network.');
+      alert("Google Sign-In didn't load. Check your network.");
       return;
     }
 
@@ -86,10 +92,13 @@
         // Fallback: render the official Sign In button into a hidden anchor
         // and programmatically click it (One Tap may be blocked by FedCM).
         if (opts.anchorEl) {
-          opts.anchorEl.innerHTML = '';
+          opts.anchorEl.innerHTML = "";
           window.google.accounts.id.renderButton(opts.anchorEl, {
-            theme: 'filled_black', size: 'large', type: 'standard',
-            shape: 'pill', text: 'continue_with',
+            theme: "filled_black",
+            size: "large",
+            type: "standard",
+            shape: "pill",
+            text: "continue_with",
           });
         }
       }
@@ -107,26 +116,34 @@
   function getAccessToken() {
     init();
     return new Promise((resolve, reject) => {
-      if (!tokenClient) return reject(new Error('token client not ready'));
+      if (!tokenClient) return reject(new Error("token client not ready"));
       tokenClient.callback = (resp) => {
         if (resp.error) reject(resp);
         else resolve(resp.access_token);
       };
       // 'consent' on first call, '' subsequently if cached.
-      tokenClient.requestAccessToken({ prompt: getUser() ? '' : 'consent' });
+      tokenClient.requestAccessToken({ prompt: getUser() ? "" : "consent" });
     });
   }
 
   function onChange(cb) {
     onChangeCallbacks.push(cb);
-    return () => { onChangeCallbacks = onChangeCallbacks.filter(c => c !== cb); };
+    return () => {
+      onChangeCallbacks = onChangeCallbacks.filter((c) => c !== cb);
+    };
   }
 
   window.SSAuth = {
-    init, signIn, signOut, getUser, onChange, getAccessToken, CLIENT_ID,
+    init,
+    signIn,
+    signOut,
+    getUser,
+    onChange,
+    getAccessToken,
+    CLIENT_ID,
   };
 
   // Auto-init when GIS finishes loading.
   if (window.google && window.google.accounts) init();
-  else window.addEventListener('load', () => setTimeout(init, 100));
+  else window.addEventListener("load", () => setTimeout(init, 100));
 })();
