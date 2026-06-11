@@ -108,6 +108,21 @@
       return (j.permissions || []).map(p => (p.emailAddress || '').toLowerCase()).filter(Boolean);
     }
 
+    // Deterministic "does this Sheet still exist?" — Drive files.get reports
+    // trashed files too (Sheets API does not, reliably). Returns:
+    //   true  → file exists and is not trashed
+    //   false → file is gone (404) or trashed
+    //   null  → couldn't tell (transient error) — caller should NOT prune
+    async function fileExists(sheetId) {
+      try {
+        const j = await call(DRIVE + '/' + sheetId + '?fields=id,trashed', { method: 'GET' });
+        return !!(j && j.id) && !j.trashed;
+      } catch (e) {
+        if (/\b(404|410)\b/.test(String(e && e.message))) return false;
+        return null;
+      }
+    }
+
     // App-data index.json: { [groupId]: sheetId }
     async function readIndex() {
       const list = await call(DRIVE + '?spaces=appDataFolder&q=' + encodeURIComponent("name='index.json'") + '&fields=files(id)', { method: 'GET' });
@@ -138,7 +153,7 @@
     }
 
     return { createSpreadsheet, initTabs, appendEvent, readEventsSince, readMembers, readMeta, readRates,
-             permissionsCreate, permissionsList, readIndex, writeIndex };
+             permissionsCreate, permissionsList, fileExists, readIndex, writeIndex };
   }
 
   return { createSheetsClient };

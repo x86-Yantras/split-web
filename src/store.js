@@ -228,6 +228,14 @@
       }
       const indexBefore = JSON.stringify(index);
       for (const [groupId, sheetId] of Object.entries(index)) {
+        // Deterministic existence check: drops Sheets the user trashed or deleted
+        // in Drive (Sheets API alone reports these inconsistently). null = unknown
+        // (transient) → keep the group and try again next load.
+        if (sheets.fileExists) {
+          let exists = null;
+          try { exists = await sheets.fileExists(sheetId); } catch (e) {}
+          if (exists === false) { removeGroupLocal(groupId); continue; }
+        }
         G[groupId] = G[groupId] || { id: groupId, sheetId, events: loadCachedEvents(groupId), lastSeq: 0 };
         G[groupId].lastSeq = G[groupId].events.reduce((m, e) => Math.max(m, e.seq), 0);
         try {
