@@ -35,6 +35,7 @@
         try { body = (await res.text()).slice(0, 300); } catch (e) {}
         throw new Error('Google API ' + res.status + ' for ' + url + (body ? ' — ' + body : ''));
       }
+      if (res.status === 204) return null; // No Content (e.g. DELETE)
       return res.json();
     }
 
@@ -126,6 +127,13 @@
       }
     }
 
+    // Permanently delete a Sheet (owner only — drive.file allows deleting files
+    // this app created). After this, every other member's reads 404 and the group
+    // auto-prunes on their next load.
+    async function deleteFile(sheetId) {
+      await call(DRIVE + '/' + sheetId, { method: 'DELETE' });
+    }
+
     // App-data index.json: { [groupId]: sheetId }
     async function readIndex() {
       const list = await call(DRIVE + '?spaces=appDataFolder&q=' + encodeURIComponent("name='index.json'") + '&fields=files(id)', { method: 'GET' });
@@ -156,7 +164,7 @@
     }
 
     return { createSpreadsheet, initTabs, appendEvent, readEventsSince, readMembers, readMeta, readRates,
-             permissionsCreate, permissionsList, fileExists, readIndex, writeIndex };
+             permissionsCreate, permissionsList, fileExists, deleteFile, readIndex, writeIndex };
   }
 
   return { createSheetsClient };

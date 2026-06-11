@@ -62,10 +62,24 @@
       try { storage.removeItem(cacheKey(id)); } catch (e) {}
     }
 
-    // User-initiated: remove a group from *my* list. Unlinks locally and pushes
-    // the cleaned index back to Drive so it stays gone across my devices. Does
-    // NOT delete the shared Sheet — other members keep their data.
+    // Am I the group's admin (creator/owner)?
+    function isOwner(groupId) {
+      const g = G[groupId];
+      if (!g) return false;
+      const folded = D.foldEvents(g.events.map(localizeEvent));
+      const me = folded.members.find(m => m.person_id === meId);
+      return !!(me && me.role === 'admin');
+    }
+
+    // User-initiated removal. Owner → permanently delete the shared Sheet (gone for
+    // everyone). Member → just unlink from my own list. Either way, drop it locally
+    // and push the cleaned index back to Drive so it stays gone across my devices.
     async function forgetGroup(groupId) {
+      const g = G[groupId];
+      const owner = isOwner(groupId);
+      if (owner && g && sheets.deleteFile) {
+        try { await sheets.deleteFile(g.sheetId); } catch (e) {}
+      }
       removeGroupLocal(groupId);
       notify();
       try { const idx = await sheets.readIndex(); await sheets.writeIndex(idx.fileId, index); } catch (e) {}
@@ -95,8 +109,10 @@
         expenses[g.id] = exps; payments[g.id] = folded.payments;
         expensesByGroup[g.id] = exps; paymentsByGroup[g.id] = folded.payments;
         const summary = D.groupSummary(exps, folded.payments, memberIds, meId);
+        const meMember = folded.members.find(m => m.person_id === meId);
         groups.push({ id: g.id, name: folded.meta.name, emoji: folded.meta.emoji,
           cover: folded.meta.cover, currency: folded.meta.currency, members: memberIds,
+          amOwner: !!(meMember && meMember.role === 'admin'),
           youOwe: summary.youOwe, youAreOwed: summary.youAreOwed });
       }
       const friends = D.friendBalances(groups, expensesByGroup, paymentsByGroup, meId);

@@ -12,8 +12,10 @@ function GroupScreen({ store, groupId, navigate, goBack }) {
 
   const removeGroup = async () => {
     setMenuOpen(false);
-    const ok = window.confirm('Remove "' + (group.name || 'this group') + '" from your list?\n\nThis only removes it from SplitSplit on your devices — it does not delete the shared Google Sheet or affect other members.');
-    if (!ok) return;
+    const msg = group.amOwner
+      ? 'Delete "' + (group.name || 'this group') + '" for everyone?\n\nYou own this group, so this permanently deletes the shared Google Sheet — all members lose access and the data is gone.'
+      : 'Remove "' + (group.name || 'this group') + '" from your list?\n\nThis only removes it from SplitSplit on your devices — the shared Sheet and other members are unaffected.';
+    if (!window.confirm(msg)) return;
     try { await store.forgetGroup(groupId); } catch (e) {}
     goBack();
   };
@@ -61,7 +63,7 @@ function GroupScreen({ store, groupId, navigate, goBack }) {
                   <button onClick={removeGroup} style={{
                     display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none',
                     padding: '13px 16px', fontFamily: 'Geist, system-ui', fontSize: 14.5, color: SS.negative, cursor: 'pointer',
-                  }}>Remove group</button>
+                  }}>{group.amOwner ? 'Delete group' : 'Remove group'}</button>
                 </div>
               </React.Fragment>
             )}
