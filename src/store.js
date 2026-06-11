@@ -20,6 +20,7 @@
     const G = {};
     let index = deps.index || loadIndex();        // { groupId: sheetId }
     let snapshot = null;
+    let hydrating = true; // spinner until the first hydrate() settles
     const subs = new Set();
     const queue = [];                              // pending {sheetId, row, groupId}
 
@@ -73,7 +74,7 @@
           youOwe: summary.youOwe, youAreOwed: summary.youAreOwed });
       }
       const friends = D.friendBalances(groups, expensesByGroup, paymentsByGroup, meId);
-      snapshot = { ready: true, me: people[meId], groups, people, expenses, payments, friends };
+      snapshot = { ready: true, hydrating, me: people[meId], groups, people, expenses, payments, friends };
     }
 
     function notify() { rebuild(); for (const cb of subs) cb(); }
@@ -235,6 +236,8 @@
     }
 
     async function hydrate() {
+      hydrating = true;
+      try {
       // Drive index.json is the source of truth. Read it every load and merge any
       // local-only (offline-created) groups on top, so deletions made on another
       // device propagate here automatically — no manual cache clearing.
@@ -282,6 +285,7 @@
         try { const r = await sheets.readRates(g.sheetId); if (r && Object.keys(r).length) { (D._CCY || (typeof window !== 'undefined' && window.CCY)).setRates(r); break; } } catch (e) {}
       }
       notify();
+      } finally { hydrating = false; notify(); }
     }
 
     function allActivity() {

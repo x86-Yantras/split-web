@@ -82,9 +82,11 @@ function HomeScreen({ store, tweaks, navigate, user }) {
       <SectionLabel action="New group" onAction={() => navigate({ screen: 'newGroup' })}>Your groups</SectionLabel>
 
       <div style={{ padding: '0 16px 8px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {groups.length === 0
-          ? <EmptyState emoji="🧳" title="No groups yet" sub="Create your first group to start splitting expenses with friends." cta="New group" onCta={() => navigate({ screen: 'newGroup' })} />
-          : groups.map(g => <GroupCard key={g.id} group={g} people={people} onClick={() => navigate({ screen: 'group', id: g.id })} />)}
+        {snap.hydrating && groups.length === 0
+          ? <GroupsLoading />
+          : groups.length === 0
+            ? <EmptyState emoji="🧳" title="No groups yet" sub="Create your first group to start splitting expenses with friends." cta="New group" onCta={() => navigate({ screen: 'newGroup' })} />
+            : groups.map(g => <GroupCard key={g.id} group={g} people={people} onClick={() => navigate({ screen: 'group', id: g.id })} />)}
       </div>
 
       <SectionLabel>Quick actions</SectionLabel>
@@ -95,6 +97,34 @@ function HomeScreen({ store, tweaks, navigate, user }) {
 
       <div style={{ height: 24 }} />
     </Screen>
+  );
+}
+
+function GroupsLoading() {
+  return (
+    <div style={{
+      padding: '40px 0 36px', display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center', gap: 16,
+    }}>
+      <div style={{ position: 'relative', width: 64, height: 64 }}>
+        {/* spinning ring */}
+        <div style={{
+          position: 'absolute', inset: 0, borderRadius: 999,
+          border: `3px solid ${SS.hairline}`, borderTopColor: SS.accent,
+          animation: 'sshomespin 0.85s linear infinite',
+        }} />
+        {/* money sign in the middle */}
+        <div style={{
+          position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontFamily: '"Instrument Serif", serif', fontStyle: 'italic', fontSize: 28,
+          color: SS.ink, paddingBottom: 2,
+        }}>$</div>
+      </div>
+      <div style={{ fontFamily: 'Geist, system-ui', fontSize: 14, fontWeight: 500, color: SS.muted }}>
+        Loading your groups…
+      </div>
+      <style>{`@keyframes sshomespin { to { transform: rotate(360deg); } }`}</style>
+    </div>
   );
 }
 
