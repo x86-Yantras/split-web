@@ -389,7 +389,9 @@
         for (const g of Object.values(G)) {
           if (g.id === PROFILE_KEY) continue;
           const folded = D.foldEvents(g.events.map(localizeEvent));
-          for (const m of folded.members) await rememberFriend(m.email, m.name);
+          for (const m of folded.members) {
+            try { await rememberFriend(m.email, m.name); } catch (e) {}
+          }
         }
         await flush();
       } catch (e) {} // best-effort: friends/autocomplete
