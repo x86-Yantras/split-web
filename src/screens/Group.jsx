@@ -48,6 +48,11 @@ function GroupScreen({ store, groupId, navigate, goBack }) {
                   background: SS.surface, border: `1px solid ${SS.hairline}`, borderRadius: 14,
                   boxShadow: '0 10px 30px rgba(31,27,22,0.18)', overflow: 'hidden',
                 }}>
+                  <button onClick={() => { setMenuOpen(false); navigate({ screen: 'invite', groupId: group.id }); }} style={{
+                    display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none',
+                    padding: '13px 16px', fontFamily: 'Geist, system-ui', fontSize: 14.5, color: SS.ink, cursor: 'pointer',
+                  }}>Invite people</button>
+                  <HR inset={0} />
                   <button onClick={() => { setMenuOpen(false); exportCSV(); }} style={{
                     display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none',
                     padding: '13px 16px', fontFamily: 'Geist, system-ui', fontSize: 14.5, color: SS.ink, cursor: 'pointer',
@@ -115,7 +120,7 @@ function GroupScreen({ store, groupId, navigate, goBack }) {
 
       {tab === 'expenses' ? <ExpensesList expenses={expenses} group={group} people={people} navigate={navigate} />
         : tab === 'balances' ? <BalancesList group={group} expenses={expenses} payments={snap.payments[groupId] || []} people={people} navigate={navigate} store={store} />
-        : <TotalsList group={group} expenses={expenses} people={people} />}
+        : <TotalsList group={group} expenses={expenses} people={people} navigate={navigate} />}
 
       <div style={{ height: 24 }} />
     </Screen>
@@ -330,7 +335,7 @@ function BalancesList({ group, expenses, payments, people, navigate, store }) {
   );
 }
 
-function TotalsList({ group, expenses, people }) {
+function TotalsList({ group, expenses, people, navigate }) {
   // Compute per-person paid + share, plus by-category totals.
   const totals = {}; // id -> { paid, share }
   for (const id of group.members) totals[id] = { paid: 0, share: 0 };
