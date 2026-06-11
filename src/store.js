@@ -46,7 +46,7 @@
 
     function profileState() {
       const g = G[PROFILE_KEY];
-      return g ? D.foldProfile(g.events) : { friends: {}, sentInvites: [] };
+      return g ? D.foldProfile(g.events.map(localizeEvent)) : { friends: {}, sentInvites: [] };
     }
 
     // Idempotent: ensure a profile Sheet exists, is indexed, and is loaded into G.
@@ -62,7 +62,7 @@
         sheetId = await sheets.createSpreadsheet('SplitSplit · Profile');
         await sheets.initTabs(sheetId, { kind: 'profile', schema_version: '1' }, []);
         index[PROFILE_KEY] = sheetId; saveIndex();
-        try { const idx = await sheets.readIndex(); index = Object.assign(idx.map || {}, index); await sheets.writeIndex(idx.fileId, index); } catch (e) {}
+        await pushIndex();
       }
       G[PROFILE_KEY] = { id: PROFILE_KEY, sheetId, events: loadCachedEvents(PROFILE_KEY), lastSeq: 0 };
       G[PROFILE_KEY].lastSeq = G[PROFILE_KEY].events.reduce((m, e) => Math.max(m, e.seq), 0);
@@ -82,6 +82,11 @@
       try { return JSON.parse(storage.getItem('splitsplit.index.v1') || '{}'); } catch (e) { return {}; }
     }
     function saveIndex() { storage.setItem('splitsplit.index.v1', JSON.stringify(index)); }
+    // Read the Drive index, merge our local entries on top (local wins), and write
+    // it back. Best-effort — offline/API failures are swallowed.
+    async function pushIndex() {
+      try { const idx = await sheets.readIndex(); index = Object.assign(idx.map || {}, index); await sheets.writeIndex(idx.fileId, index); } catch (e) {}
+    }
     function cacheKey(id) { return 'splitsplit.events.' + id; }
     function loadCachedEvents(id) { try { return JSON.parse(storage.getItem(cacheKey(id)) || '[]'); } catch (e) { return []; } }
     function saveCachedEvents(id) { storage.setItem(cacheKey(id), JSON.stringify(G[id].events)); }
@@ -213,7 +218,7 @@
       appendLocal(groupId, D.EVENT.GROUP_CREATED, { name, emoji, cover, currency });
       appendLocal(groupId, D.EVENT.MEMBER_ADDED, meMember);
       await flush();
-      try { const idx = await sheets.readIndex(); index = Object.assign(idx.map || {}, index); await sheets.writeIndex(idx.fileId, index); } catch (e) {}
+      await pushIndex();
       return { id: groupId, sheetId };
     }
 
