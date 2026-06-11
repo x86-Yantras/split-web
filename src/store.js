@@ -70,6 +70,21 @@
       return G[PROFILE_KEY];
     }
 
+    // Append a profile event (best-effort; assumes ensureProfile has run).
+    function appendProfile(type, payload) {
+      if (!G[PROFILE_KEY]) return;
+      appendLocal(PROFILE_KEY, type, payload);
+    }
+
+    // Record an email as a contact if not already known (and not ourselves).
+    async function rememberFriend(email, name) {
+      email = (email || '').toLowerCase();
+      if (!email || email === (user && user.email || '').toLowerCase()) return;
+      await ensureProfile();
+      if (profileState().friends[email]) return;
+      appendProfile(D.EVENT.FRIEND_SEEN, { email, name: name || email.split('@')[0] });
+    }
+
     // group state: id -> { sheetId, meta, members:[], events:[], lastSeq }
     const G = {};
     let index = deps.index || loadIndex();        // { groupId: sheetId }
@@ -274,6 +289,12 @@
       // The link carries the sheetId so the invitee can resolve which Sheet to verify
       // against. The sheetId is not a secret — access is gated by the Drive ACL.
       const origin = deps.appOrigin || 'https://splitsplit.app';
+      try {
+        await ensureProfile();
+        appendProfile(D.EVENT.FRIEND_SEEN, { email, name: email.split('@')[0] });
+        appendProfile(D.EVENT.INVITE_SENT, { groupId, sheetId: g.sheetId, email, token, ts: now() });
+        await flush();
+      } catch (e) {} // best-effort: never block the invite on profile bookkeeping
       return { token, link: origin + '/join/' + groupId + '?s=' + g.sheetId + '&t=' + token };
     }
 

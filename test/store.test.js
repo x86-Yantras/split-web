@@ -176,6 +176,18 @@ test('hydrate: creates a profile Sheet and does not treat it as a group', async 
   assert.ok(store.index['__profile__'], 'profile sheetId recorded in index');
 });
 
+test('inviteByEmail: records the invitee as a contact and logs the sent invite', async () => {
+  const sheets = fakeSheets();
+  const store = newStore(sheets);
+  const g = await store.createGroup({ name: 'T', emoji: '🏠', cover: 'g', currency: 'USD' });
+  await store.inviteByEmail(g.id, 'Friend@Gmail.com');
+  const snap = store.getSnapshot();
+  assert.ok(snap.contacts.some(c => c.email === 'friend@gmail.com'), 'invitee is a contact');
+  assert.equal(snap.sentInvites.length, 1);
+  assert.equal(snap.sentInvites[0].email, 'friend@gmail.com');
+  assert.equal(snap.sentInvites[0].groupId, g.id);
+});
+
 test('multi-user identity: payer is not "me" for the other member', async () => {
   const sheets = fakeSheets();
   const mk = (email, name) => {
