@@ -38,7 +38,4 @@ import './app.jsx';
 window.React = React;
 
 const root = createRoot(document.getElementById('root'));
-root.render(
-  React.createElement(window.IOSDevice, { width: 402, height: 874 },
-    React.createElement(window.App))
-);
+root.render(React.createElement(window.App));

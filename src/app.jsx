@@ -78,13 +78,13 @@ function App() {
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: SS.bg }}>
-      <div style={{ height: 62, flexShrink: 0, background: SS.bg }} />
+      <div style={{ height: 'env(safe-area-inset-top, 0px)', flexShrink: 0, background: SS.bg }} />
       <div style={{ flex: 1, minHeight: 0 }}>{inner}</div>
       {signedIn && !top && !joinActive && (
         <TabBar active={tab} onChange={setTab} onAdd={() => navigate({ screen: 'newGroup' })} />
       )}
       {(joinActive || (signedIn && top)) && (
-        <div style={{ height: 34, flexShrink: 0, background: SS.bg }} />
+        <div style={{ height: 'env(safe-area-inset-bottom, 0px)', flexShrink: 0, background: SS.bg }} />
       )}
 
       {/* Tweaks panel */}
