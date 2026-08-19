@@ -4,6 +4,7 @@ import { defineConfig } from 'vite';
 // Vite/esbuild just transpiles the JSX and serves ES modules. The OAuth client's
 // authorized origin is http://localhost:5174, so the dev server is pinned there.
 export default defineConfig({
+  base: '/split-web/',
   server: { host: 'localhost', port: 5174, strictPort: true },
   preview: { host: 'localhost', port: 5174, strictPort: true },
   esbuild: {

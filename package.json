@@ -3,17 +3,21 @@
   "version": "1.0.0",
   "private": true,
   "description": "SplitSplit — free, serverless Splitwise alternative (Sheets-backed PWA)",
+  "homepage": "https://github.io",
   "scripts": {
     "dev": "vite",
     "build": "vite build && mkdir -p dist/.well-known && cp public/.well-known/assetlinks.json dist/.well-known/assetlinks.json",
     "preview": "vite preview --port 5174 --strictPort",
-    "test": "node --test"
+    "test": "node --test",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist"
   },
   "dependencies": {
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "gh-pages": "^6.3.0",
     "vite": "^5.4.10"
   }
 }
