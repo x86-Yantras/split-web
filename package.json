@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "description": "SplitSplit — free, serverless Splitwise alternative (Sheets-backed PWA)",
-  "homepage": "https://github.io",
+  "homepage": "https://x86-Yantras.github.io/split-web",
   "scripts": {
     "dev": "vite",
     "build": "vite build && mkdir -p dist/.well-known && cp public/.well-known/assetlinks.json dist/.well-known/assetlinks.json",
